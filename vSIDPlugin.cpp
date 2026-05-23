@@ -1732,7 +1732,7 @@ void vsid::VSIDPlugin::loadEse()
 		messageHandler->writeMessage("ERROR", "Failed to parse main config. (Critical!)");
 		return;
 	}
-		
+
 	if (!vSidConfig.contains("esePath"))
 	{
 		messageHandler->writeMessage("ERROR", "Config value esePath is missing. (Critical!).");
@@ -1744,35 +1744,45 @@ void vsid::VSIDPlugin::loadEse()
 	PathRemoveFileSpecA(path);
 	std::filesystem::path basePath = path;
 	std::string esePath = vSidConfig.at("esePath");
-	std::filesystem::path fullEsePath;
 
-	basePath.append(esePath).make_preferred();
-	
+	std::filesystem::path searchPath;
+
 	try
 	{
-		for (const std::filesystem::path& entry : std::filesystem::directory_iterator(basePath))
+		searchPath = std::filesystem::weakly_canonical(basePath / esePath);
+
+		if (!std::filesystem::exists(searchPath) || !std::filesystem::is_directory(searchPath))
 		{
-			if (!std::filesystem::is_directory(entry) && entry.extension() == ".ese")
+			messageHandler->writeMessage("ERROR", "Invalid ese directory: " + searchPath.string());
+			return;
+		}
+
+		std::vector<std::filesystem::path> fullEsePaths;
+
+		// Get All .ese files in the directory
+		for (const auto& entry : std::filesystem::directory_iterator(searchPath))
+		{
+			if (entry.path().extension() == ".ese")
 			{
-				fullEsePath = entry;
-				fullEsePath = std::filesystem::canonical(fullEsePath.make_preferred());
+				fullEsePaths.emplace_back(std::filesystem::canonical(entry.path()));
 			}
 		}
 
-		if (fullEsePath.empty())
+		if (fullEsePaths.empty())
 		{
-			messageHandler->writeMessage("ERROR", "Couldn't find .ese file. Checked in: " + basePath.lexically_normal().string());
+			messageHandler->writeMessage("ERROR", "Couldn't find any .ese file in: " + searchPath.string());
 			return;
 		}
-	}
-	catch (std::filesystem::filesystem_error& e)
-	{
-		messageHandler->writeMessage("ERROR", "Failed to validate ese path: " + std::string(e.what()));
-	}
-	
+		else messageHandler->writeMessage("INFO", "Found .ese file: " + fullEsePaths[0].string());
 
-	vsid::EseParser eseParser(this->sectionAtc, this->sectionSids);
-	eseParser.parseEse(fullEsePath);
+		vsid::EseParser eseParser(this->sectionAtc, this->sectionSids);
+
+		eseParser.parseEse(fullEsePaths);
+	}
+	catch (const std::filesystem::filesystem_error& e)
+	{
+		messageHandler->writeMessage("ERROR", std::string("Filesystem error: ") + e.what());
+	}
 }
 
 void vsid::VSIDPlugin::addOrSetSquawk(const std::string& callsign, bool forceTS)

@@ -136,6 +136,38 @@ std::string vsid::utils::toupper(std::string input)
 EuroScopePlugIn::CPosition vsid::utils::toPoint(const std::pair<std::string, std::string>& pos)
 {
 	EuroScopePlugIn::CPosition p;
+
+	// Handle case where both latitude and longitude are provided in a single string separated by ':',
+	// or if pos.second is empty and pos.first contains both latitude and longitude
+	if ((pos.second.empty() || pos.second.find_first_not_of(' ') == std::string::npos) && pos.first.find(':') != std::string::npos)
+	{
+		std::vector<std::string> parts = vsid::utils::split(pos.first, ':');
+		if (parts.size() >= 2)
+		{
+			// determine which part is lat and which is lon based on directional letters
+			std::string a = vsid::utils::trim(parts[0]);
+			std::string b = vsid::utils::trim(parts[1]);
+			if (!a.empty() && (a.front() == 'N' || a.front() == 'S'))
+			{
+				p.m_Latitude = toDeg(a);
+				p.m_Longitude = toDeg(b);
+			}
+			else if (!b.empty() && (b.front() == 'N' || b.front() == 'S'))
+			{
+				p.m_Latitude = toDeg(b);
+				p.m_Longitude = toDeg(a);
+			}
+			else
+			{
+				// fallback: first -> latitude, second -> longitude
+				p.m_Latitude = toDeg(a);
+				p.m_Longitude = toDeg(b);
+			}
+
+			return p;
+		}
+	}
+
 	p.m_Latitude = toDeg(pos.first);
 	p.m_Longitude = toDeg(pos.second);
 
@@ -144,38 +176,77 @@ EuroScopePlugIn::CPosition vsid::utils::toPoint(const std::pair<std::string, std
 
 double vsid::utils::toDeg(const std::string& coord)
 {
-	if (coord.empty())
+	std::string c = vsid::utils::trim(coord);
+
+	if (c.empty())
 	{
 		messageHandler->writeMessage("WARNING", "Empty coordinate string found! Skipping coordinate.");
 		return 0.0;
 	}
 
-	std::vector<std::string> dms = vsid::utils::split(coord, '.');
-	int multi = 0; // default state in exception case
+	// If someone passed a combined lat:lon string, try to extract a single directional part
+	if (c.find(':') != std::string::npos)
+	{
+		std::vector<std::string> parts = vsid::utils::split(c, ':');
+		for (const auto& part : parts)
+		{
+			if (!part.empty() && (part.front() == 'N' || part.front() == 'S' || part.front() == 'E' || part.front() == 'W'))
+			{
+				c = part;
+				break;
+			}
+		}
+	}
+
+	std::vector<std::string> dms = vsid::utils::split(c, '.');
+	int multi = 1; // assume positive unless we detect S or W
 
 	try
 	{
-		if (dms.size() < 4)
-			throw std::out_of_range("Coordinate string \"" + coord + "\" does not contain enough parts for DMS conversion!");
+		if (dms.empty())
+			throw std::out_of_range("Coordinate string \"" + c + "\" does not contain enough parts for DMS conversion!");
 
-		multi = (dms.at(0).find('S') != std::string::npos || dms.at(0).find('W') != std::string::npos) ? -1 : 1;
+		// determine sign from first part
+		if (dms.at(0).find('S') != std::string::npos || dms.at(0).find('W') != std::string::npos)
+			multi = -1;
 
-		double deg = std::stod(dms[0].substr(1, dms[0].length()));
-		double min = std::stod(dms[1]) / 60;
-		double sec = (std::stod(dms[2]) + std::stod("0." + dms[3])) / 3600;
+		// degrees: expect first part to start with directional letter followed by degrees or just degrees
+		std::string degPart = dms[0];
+		if (!degPart.empty() && (degPart.front() == 'N' || degPart.front() == 'S' || degPart.front() == 'E' || degPart.front() == 'W'))
+			degPart = degPart.substr(1);
+
+		double deg = 0.0;
+		double min = 0.0;
+		double sec = 0.0;
+
+		if (!degPart.empty())
+			deg = std::stod(degPart);
+
+		if (dms.size() >= 2 && !dms[1].empty())
+			min = std::stod(dms[1]) / 60.0;
+
+		if (dms.size() >= 3 && !dms[2].empty())
+			sec = std::stod(dms[2]) / 3600.0;
+
+		// if there's a fractional seconds part (4th part), add it as decimal fraction
+		if (dms.size() >= 4 && !dms[3].empty())
+		{
+			double frac = std::stod(std::string("0.") + dms[3]);
+			sec += frac / 3600.0;
+		}
 
 		return (deg + min + sec) * multi;
 	}
 	catch (std::out_of_range& e)
 	{
-		messageHandler->writeMessage("ERROR", "Out of bounds while calculating coordinate: " + coord + ". " + e.what());
+		messageHandler->writeMessage("ERROR", "Out of bounds while calculating coordinate: " + c + ". " + e.what());
 	}
 	catch (const std::invalid_argument& e)
 	{
-		messageHandler->writeMessage("ERROR", "Invalid number format in coord " + coord + ". " + e.what());
+		messageHandler->writeMessage("ERROR", "Invalid number format in coord " + c + ". " + e.what());
 	}
 
-	messageHandler->writeMessage("WARNING", "Fallback state for \"" + coord + "\"! Failed to calculate. DMS will be set to 0.0");
+	messageHandler->writeMessage("WARNING", "Fallback state for \"" + c + "\"! Failed to calculate. DMS will be set to 0.0");
 
 	return 0.0;
 }

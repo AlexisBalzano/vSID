@@ -29,6 +29,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <set>
 #include <vector>
 #include <compare>
+#include <tuple>
 
 #include "utils.h"
 #include "area.h" // only for point calculation
@@ -48,7 +49,9 @@ namespace vsid
 
 		bool operator<(const vsid::SectionAtc& other) const noexcept
 		{
-			return si < other.si;
+			// Order (and uniqueness) is based on callsign so entries from multiple files with the same
+			// callsign are considered duplicates and won't be inserted multiple times into the set.
+			return callsign < other.callsign;
 		}
 	};
 
@@ -78,7 +81,12 @@ namespace vsid
 			vsid::SectionTransition trans = vsid::SectionTransition( "", std::nullopt, std::nullopt), std::string route = "") :
 			apt(std::move(apt)), base(std::move(base)), number(number), desig(std::move(desig)), rwy(std::move(rwy)), trans(std::move(trans)), route(std::move(route)) {}
 
-		auto operator<=> (const vsid::SectionSID&) const = default;
+		// Use a key-based ordering so SIDs from different files that refer to the same SID
+		// (same airport, base, number and optional designator) are considered duplicates.
+		bool operator<(const vsid::SectionSID& other) const noexcept
+		{
+			return std::tie(apt, base, number, desig) < std::tie(other.apt, other.base, other.number, other.desig);
+		}
 	};
 
 	class EseParser
@@ -89,7 +97,7 @@ namespace vsid
 		{
 		}
 
-		void parseEse(const std::filesystem::path& path);
+		void parseEse(const std::vector<std::filesystem::path>& path);
 
 	private:
 		enum class Section { None, Positions, SidsStars, Unknown };
@@ -109,17 +117,6 @@ namespace vsid
 			if (header == "[SIDSSTARS]") return Section::SidsStars;
 			return Section::Unknown;
 		}
-
-		//************************************
-		// Description: Work to be done on entering given section of the ese-file
-		// Method:    enter
-		// FullName:  vsid::EseParser::enter
-		// Access:    private 
-		// Returns:   void
-		// Qualifier:
-		// Parameter: Section s
-		//************************************
-		void enter(Section s);
 
 		//************************************
 		// Description: Work to be done on each line in an ese file section

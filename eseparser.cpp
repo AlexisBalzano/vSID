@@ -2,62 +2,53 @@
 
 #include "eseparser.h"
 #include "flightplan.h"
+#include <cmath>
 
-void vsid::EseParser::parseEse(const std::filesystem::path& path)
+void vsid::EseParser::parseEse(const std::vector<std::filesystem::path>& paths)
 {
-	messageHandler->writeMessage("DEBUG", "Ese path to parse: \"" + path.string() + "\"", vsid::MessageHandler::DebugArea::Conf);
-
-	std::ifstream in(path);
-	if (!in)
+	for (const auto& path : paths) 
 	{
-		messageHandler->writeMessage("ERROR", "Failed to open .ese file in path: " + path.string());
-		return;
-	}
+		messageHandler->writeMessage("INFO", "Ese path to parse: \"" + path.string() + "\"", vsid::MessageHandler::DebugArea::Conf);
 
-	std::string l;
-
-	while (std::getline(in, l))
-	{
-		if (isEmptyOrComment(l)) continue;
-
-		if (isHeader(l)) // set new section and leave old one if active
+		std::ifstream in(path);
+		if (!in)
 		{
-			if (currSection != Section::None) exit(currSection);
-
-			currSection = toSection(l);
-			enter(currSection);
-			continue;
+			messageHandler->writeMessage("ERROR", "Failed to open .ese file in path: " + path.string());
+			return;
 		}
 
-		if (currSection != Section::None && !isEmptyOrComment(l)) // work through non-empty and non-comment lines
+		std::string l;
+
+		while (std::getline(in, l))
 		{
-			line(currSection, std::string_view(l));
-			
+			if (isEmptyOrComment(l)) continue;
+
+			if (isHeader(l)) // set new section and leave old one if active
+			{
+				if (currSection != Section::None) exit(currSection);
+
+				currSection = toSection(l);
+				continue;
+			}
+
+			if (currSection != Section::None && !isEmptyOrComment(l)) // work through non-empty and non-comment lines
+			{
+				line(currSection, std::string_view(l));
+
+			}
 		}
+
+		if (currSection != Section::None) exit(currSection);
+
+		currSection = Section::None;
+
+		// Debug: report accumulated totals after each file so we can verify aggregation
+		messageHandler->writeMessage("DEBUG", "Accumulated after file: " + path.filename().string() + " - ATC: " + std::to_string(this->sectionAtc_.size()) + ", SIDs: " + std::to_string(this->sectionSids_.size()), vsid::MessageHandler::DebugArea::Conf);
 	}
 
-	if (currSection != Section::None) exit(currSection);
-
-	currSection = Section::None;
-}
-
-void vsid::EseParser::enter(vsid::EseParser::Section s)
-{
-	switch (s)
-	{
-	case Section::Positions:
-		this->sectionAtc_.clear();
-
-		break;
-
-	case Section::SidsStars:
-		this->sectionSids_.clear();
-		break;
-
-	case Section::Unknown:
-	case Section::None:
-		break;
-	}
+	// Print summary of parsed data
+	messageHandler->writeMessage("INFO", "Total parsed " + std::to_string(this->sectionAtc_.size()) + " atc stations.");
+	messageHandler->writeMessage("INFO", "Total parsed " + std::to_string(this->sectionSids_.size()) + " SIDs.");
 }
 
 void vsid::EseParser::line(Section s, std::string_view l)
@@ -131,13 +122,42 @@ void vsid::EseParser::line(Section s, std::string_view l)
 				}
 			}
 
-			this->sectionAtc_.emplace(
+			SectionAtc newAtc{
 				atcVec.at(0), // callsign
 				atcVec.at(3), // si
 				facility,
 				std::stod(atcVec.at(2)), // freq
 				visPoints // additional vis points
-			); 
+			};
+
+			// try to find existing entry by callsign (set ordering uses callsign)
+			auto it = this->sectionAtc_.find(newAtc);
+			if (it == this->sectionAtc_.end())
+			{
+				this->sectionAtc_.insert(this->sectionAtc_.end(), std::move(newAtc));
+			}
+			else
+			{
+				// merge visPoints avoiding duplicates
+				SectionAtc merged = *it;
+				for (const auto& vp : visPoints)
+				{
+					bool exists = false;
+					for (const auto& evp : merged.visPoints)
+					{
+						if (std::abs(evp.m_Latitude - vp.m_Latitude) < 1e-9 && std::abs(evp.m_Longitude - vp.m_Longitude) < 1e-9)
+						{
+							exists = true;
+							break;
+						}
+					}
+					if (!exists) merged.visPoints.push_back(vp);
+				}
+
+				// replace existing entry with merged one
+				this->sectionAtc_.erase(it);
+				this->sectionAtc_.insert(this->sectionAtc_.end(), std::move(merged));
+			}
 		}
 		catch (std::out_of_range& e)
 		{
@@ -166,7 +186,7 @@ void vsid::EseParser::line(Section s, std::string_view l)
 
 			vsid::SectionTransition sectionTrans("", std::nullopt, std::nullopt);
 			vsid::SectionSID sectionSid("", "", '\0', std::nullopt, "", sectionTrans, "");
-			
+				
 
 			if (!sid.empty())
 			{
@@ -219,7 +239,8 @@ void vsid::EseParser::line(Section s, std::string_view l)
 				((sectionSid.trans.desig) ? std::string(1, *sectionSid.trans.desig) : "") + "]",
 				vsid::MessageHandler::DebugArea::Dev);
 
-			this->sectionSids_.emplace(std::move(sectionSid));
+			// insert SID; set ordering now deduplicates by apt+base+number+desig
+			this->sectionSids_.insert(this->sectionSids_.end(), std::move(sectionSid));
 		}
 		catch (const std::out_of_range& e)
 		{
