@@ -49,13 +49,26 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "logger.h"
 
+
+#define ESB_CLIENT_SHIM
+#include "include/PluginBridge/esbridge.h"
+
 namespace vsid
 {
 	const std::string pluginName = "vSID";
-	const std::string pluginVersion = "0.15.0.1";
-	const std::string pluginAuthor = "Gameagle";
+	const std::string pluginVersion = "0.15.0.2";
+	const std::string pluginAuthor = "Gameagle, French vACC";
 	const std::string pluginCopyright = "GPL v3";
 	const std::string pluginViewAviso = "";
+
+
+	// EuroScope Plugin Bridge.
+	static constexpr const char* BRIDGE_PROVIDER_ID = "vsid";
+	static constexpr const char* BRIDGE_SID_FIELD = "sid";
+	static constexpr const char* BRIDGE_RWY_FIELD = "rwy";
+	static constexpr const char* BRIDGE_CFL_FIELD = "cfl";
+	static constexpr uint32_t BRIDGE_FIELD_MAX_BYTES = 32;
+	static constexpr int BRIDGE_MISSING_TICKS_BEFORE_WARNING = 10;
 
 	struct Command {
 		std::string_view command;
@@ -373,6 +386,17 @@ namespace vsid
 		}
 
 		//************************************
+		// Description: Register plugin details to Euroscope Bridge
+		// Method:    RegisterBridgeProvider
+		// FullName:  vsid::VSIDPlugin::RegisterBridgeProvider
+		// Access:    public 
+		// Returns:   void
+		// Qualifier: ESB_Api_v1* api
+		//************************************
+		bool RegisterBridgeProvider(const ESB_Api_v1* api);
+
+
+		//************************************
 		// Description: Cleanup work before the plugin is unloaded or ES is exited
 		// Method:    exit
 		// FullName:  vsid::VSIDPlugin::exit
@@ -473,6 +497,15 @@ namespace vsid
 		bool updateInformed = false;
 		// if curl init was successfull
 		bool curlInit = false;
+
+		// Bridge state. Main thread only, so no mutex. The provider handle is the write
+		// authority; the field ids are resolved once and cached (B1.7).
+		ESB_Provider* bridgeProvider_ = nullptr;
+		ESB_FieldId bridgeSidField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeRwyField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeCflField_ = ESB_FIELD_NONE;
+		int bridgeMissingTicks_ = 0;
+		bool bridgeProviderConflict_ = false; // Another module owns "vsid"; stop retrying
 
 		// #dev scratchpad storage
 		std::string lastScratchCS;

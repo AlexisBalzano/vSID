@@ -84,6 +84,12 @@ vsid::VSIDPlugin::VSIDPlugin() : EuroScopePlugIn::CPlugIn(EuroScopePlugIn::COMPA
 
 vsid::VSIDPlugin::~VSIDPlugin()
 {
+	// Unregister provider from Plugin Bridge
+	if (esb_api != nullptr && bridgeProvider_ != nullptr) {
+		esb_api->unregister_provider(bridgeProvider_);
+		bridgeProvider_ = nullptr;
+	}
+
 	vsid::Logger::log(LogLevel::Debug, "VSIDPlugin destroyed.", DebugLevel::Gen);
 };
 
@@ -5974,6 +5980,22 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 	//	catch (std::out_of_range) {} // no error reporting, we just do nothing
 	//}
 
+	// Euroscope Plugin Bridge initialization
+	const ESB_Api_v1* api = ESB_Attach();
+	if (api == nullptr)
+	{
+		// One message, once, using the shared wording so a user running several
+		// bridge-aware plugins is told the same thing once rather than three ways (A7).
+		if (++bridgeMissingTicks_ == BRIDGE_MISSING_TICKS_BEFORE_WARNING)
+			messageHandler->addGenError(ESB_MISSING_MESSAGE);
+		return;
+	}
+
+	if (bridgeProvider_ == nullptr && RegisterBridgeProvider(api) == false)
+		return;
+
+
+
 	if (this->eseDataRdy_)
 	{
 		std::lock_guard<std::mutex> lock(this->bufferMtx_);
@@ -6215,6 +6237,58 @@ void vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugI
 /*
 * END ES FUNCTIONS
 */
+
+bool vsid::VSIDPlugin::RegisterBridgeProvider(const ESB_Api_v1* api)
+{
+	// The doc strings are what ".esb schema rampagent" prints, and in practice the only
+	// documentation a consumer will read (B1.3).
+	static const ESB_FieldDecl fields[] = {
+		{ BRIDGE_SID_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
+		  "SID assigned by the vSID service, empty when none is held" },
+		{ BRIDGE_RWY_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
+		  "Runway assigned by the vSID service, empty when none is held" },
+		{ BRIDGE_CFL_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
+		  "CFL assigned by the vSID service, empty when none is held" },
+	};
+
+	ESB_ProviderDecl decl = {};
+	decl.struct_size = sizeof decl;
+	decl.provider_id = BRIDGE_PROVIDER_ID;
+	decl.schema_major = 1;
+	decl.schema_minor = 0;
+	decl.display_name = "vSID";
+	decl.contact = "https://github.com/AlexisBalzano/vSID";
+	decl.fields = fields;
+	decl.field_count = static_cast<uint32_t>(std::size(fields));
+	decl.module = ESB_SelfModule();
+
+	const ESB_Status status = api->register_provider(&decl, &bridgeProvider_);
+	if (status != ESB_OK) {
+		bridgeProvider_ = nullptr;
+
+		// A taken id is a conflict to settle with the other author, not a condition to
+		// retry around (B1.6), so say it once and stop attempting.
+		if (status == ESB_E_PROVIDER_TAKEN) {
+			bridgeProviderConflict_ = true;
+			messageHandler->addGenError("Another loaded plugin already owns the \"" + std::string(BRIDGE_PROVIDER_ID) + "\" bridge provider id. Stand data will not be published.");
+		}
+		return false;
+	}
+
+	// Resolved once and cached; never called from the publish loop (B1.7)
+	if (api->own_field(bridgeProvider_, BRIDGE_SID_FIELD, &bridgeSidField_) != ESB_OK ||
+		api->own_field(bridgeProvider_, BRIDGE_RWY_FIELD, &bridgeRwyField_) != ESB_OK ||
+		api->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK) {
+		api->unregister_provider(bridgeProvider_);
+		bridgeProvider_ = nullptr;
+		bridgeSidField_ = ESB_FIELD_NONE;
+		bridgeRwyField_ = ESB_FIELD_NONE;
+		bridgeCflField_ = ESB_FIELD_NONE;
+		return false;
+	}
+
+	return true;
+}
 
 void vsid::VSIDPlugin::exit()
 {
