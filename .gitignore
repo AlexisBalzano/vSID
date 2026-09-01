@@ -362,3 +362,8 @@ MigrationBackup/
 
 
 
+
+# libcurl source fetched by CMake
+/external/
+
+out/

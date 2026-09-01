@@ -6,6 +6,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 cmake_policy(SET CMP0091 NEW)
 cmake_policy(SET CMP0156 NEW)
 
+# use download time as timestamp for archives extracted by FetchContent (CMake 3.24+)
+if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)
+endif()
+
 # ensure 32-bit (Win32) build (ES limitation)
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
     message(FATAL_ERROR "vSID must be built as 32-bit. Configure with -A Win32.")
@@ -16,7 +21,7 @@ if(MSVC)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "" FORCE)
 endif()
 
-# --- configure libcurl (external/curl provided by workflow) ---
+# --- configure libcurl (see external/curl handling below) ---
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(BUILD_CURL_EXE OFF CACHE BOOL "" FORCE)
 
@@ -73,7 +78,32 @@ set(CURL_DISABLE_KERBEROS_AUTH ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_NEGOTIATE_AUTH ON CACHE BOOL "" FORCE)
 set(CURL_DISABLE_AWS ON CACHE BOOL "" FORCE)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/external/curl)
+# libcurl lives in external/curl. The build workflow pre-populates that path; for
+# local builds it is downloaded here automatically (same version + hash as the workflow).
+set(VSID_CURL_VERSION "8.17.0" CACHE STRING "libcurl version to fetch when external/curl is missing")
+set(VSID_CURL_SHA256 "0be15247c07422a0061fda4758c0182bb9c688e40ecf968d1a0b92742a32667e"
+    CACHE STRING "SHA256 of the libcurl archive matching VSID_CURL_VERSION")
+mark_as_advanced(VSID_CURL_VERSION VSID_CURL_SHA256)
+
+set(VSID_CURL_DIR "${CMAKE_SOURCE_DIR}/external/curl")
+set(VSID_CURL_BUILD_DIR "${CMAKE_BINARY_DIR}/external/curl")
+
+if(EXISTS "${VSID_CURL_DIR}/CMakeLists.txt")
+    message(STATUS "Using libcurl source already present in ${VSID_CURL_DIR}")
+    add_subdirectory("${VSID_CURL_DIR}" "${VSID_CURL_BUILD_DIR}")
+else()
+    string(REPLACE "." "_" _curl_tag "curl-${VSID_CURL_VERSION}")
+    message(STATUS "Fetching libcurl ${VSID_CURL_VERSION} into ${VSID_CURL_DIR}")
+
+    include(FetchContent)
+    FetchContent_Declare(curl
+        URL "https://github.com/curl/curl/archive/refs/tags/${_curl_tag}.zip"
+        URL_HASH SHA256=${VSID_CURL_SHA256}
+        SOURCE_DIR "${VSID_CURL_DIR}"
+        BINARY_DIR "${VSID_CURL_BUILD_DIR}"
+    )
+    FetchContent_MakeAvailable(curl)
+endif()
 
 # directory for additional linkage
 link_directories(${CMAKE_SOURCE_DIR}/include/es)
