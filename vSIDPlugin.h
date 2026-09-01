@@ -69,6 +69,7 @@ namespace vsid
 	static constexpr const char* BRIDGE_CFL_FIELD = "cfl";
 	static constexpr uint32_t BRIDGE_FIELD_MAX_BYTES = 32;
 	static constexpr int BRIDGE_MISSING_TICKS_BEFORE_WARNING = 10;
+	static constexpr int BRIDGE_SWEEP_MAX_NEW = 10; // cap the fplns newly processed per sweep
 
 	struct Command {
 		std::string_view command;
@@ -391,9 +392,35 @@ namespace vsid
 		// FullName:  vsid::VSIDPlugin::RegisterBridgeProvider
 		// Access:    public 
 		// Returns:   void
-		// Qualifier: ESB_Api_v1* api
+		// Qualifier: 
 		//************************************
-		bool RegisterBridgeProvider(const ESB_Api_v1* api);
+		bool RegisterBridgeProvider();
+
+		//************************************
+		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
+		// Euroscope Bridge. Called where those values are defined so that publishing does
+		// not depend on the matching tag items being displayed.
+		// Method:    updateBridgeValues
+		// FullName:  vsid::VSIDPlugin::updateBridgeValues
+		// Access:    public 
+		// Returns:   void
+		// Qualifier: 
+		// Parameter: EuroScopePlugIn::CFlightPlan FlightPlan
+		//************************************
+		void updateBridgeValues(EuroScopePlugIn::CFlightPlan FlightPlan);
+
+		//************************************
+		// Description: Run the automatic processing for a flight plan that is not processed
+		// yet. Shared by the sid tag item and the bridge sweep so that processing does not
+		// depend on a tag item being displayed.
+		// Method:    autoProcessFpln
+		// FullName:  vsid::VSIDPlugin::autoProcessFpln
+		// Access:    public 
+		// Returns:   void
+		// Qualifier: 
+		// Parameter: EuroScopePlugIn::CFlightPlan & FlightPlan
+		//************************************
+		void autoProcessFpln(EuroScopePlugIn::CFlightPlan& FlightPlan);
 
 
 		//************************************
@@ -500,6 +527,7 @@ namespace vsid
 
 		// Bridge state. Main thread only, so no mutex. The provider handle is the write
 		// authority; the field ids are resolved once and cached (B1.7).
+		const ESB_Api_v1* bridgeApi_ = nullptr;
 		ESB_Provider* bridgeProvider_ = nullptr;
 		ESB_FieldId bridgeSidField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeRwyField_ = ESB_FIELD_NONE;

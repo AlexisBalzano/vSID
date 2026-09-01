@@ -1436,6 +1436,10 @@ void vsid::VSIDPlugin::processFlightplan(EuroScopePlugIn::CFlightPlan& FlightPla
 	// reset IC if it doesn't match
 
 	if (resetIC && this->processed.contains(callsign)) vsid::fplnhelper::restoreIC(this->processed[callsign], FlightPlan, ControllerMyself());
+
+	// publish the values we just defined - independent of any tag item being displayed
+
+	this->updateBridgeValues(FlightPlan);
 }
 
 void vsid::VSIDPlugin::removeFromRequests(const std::string& callsign, const std::string& icao)
@@ -2290,6 +2294,7 @@ void vsid::VSIDPlugin::OnFunctionCall(int FunctionId, const char * sItemString, 
 				{
 					vsid::Logger::log(LogLevel::Error, std::format("[{}] - Failed to set cleared altitude. Code: {}", callsign, ERROR_FPLN_SETALT));
 				}
+				else this->updateBridgeValues(fpln);
 			}
 		}
 
@@ -2750,41 +2755,7 @@ void vsid::VSIDPlugin::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, Eur
 			}
 			else if (this->activeAirports.contains(fplnData.GetOrigin()) && RadarTarget.GetGS() <= 50)
 			{
-				bool checkOnly = !this->activeAirports[fplnData.GetOrigin()].settings["auto"];
-
-				if (!checkOnly)
-				{
-					if (FlightPlan.GetClearenceFlag() ||
-						std::string(fplnData.GetPlanType()) == "V")/* ||
-						(atcBlock.first != "" && atcBlock.first != fplnData.GetOrigin())*/
-					{
-						checkOnly = true;
-					}
-					else if (!FlightPlan.GetClearenceFlag() && blockSid != fplnData.GetOrigin() && fplnData.IsAmended())
-					{
-						// prevent automode to use rwys set before
-						blockRwy = "";
-					}
-				}
-				if (blockRwy != "" &&
-					(vsid::fplnhelper::findRemarks(FlightPlan, "VSID/RWY") ||
-						blockSid != fplnData.GetOrigin() ||
-						fplnData.IsAmended())
-					)
-				{
-					vsid::Logger::log(LogLevel::Debug, std::format("[{}] not yet processed, calling processFlightplan with atcRwy [{}] {}",
-						callsign, blockRwy, (!checkOnly) ? "and setting the fpln." : "and only checking the fpln"), vsid::DebugLevel::Sid);
-
-					this->processFlightplan(FlightPlan, checkOnly, blockRwy);
-				}
-				else
-				{
-					vsid::Logger::log(LogLevel::Debug, std::format("[{}] not yet processed, calling processFlightplan without atcRwy {}",
-						callsign, (!checkOnly) ? "and setting the fpln." : "and only checking the fpln"), vsid::DebugLevel::Sid);
-
-					this->processFlightplan(FlightPlan, checkOnly);
-				}
-
+				this->autoProcessFpln(FlightPlan);
 			}
 			// if the airborne aircraft has no SID set display the first waypoint of the route
 
@@ -5130,6 +5101,10 @@ void vsid::VSIDPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn:
 			}
 		}
 	}
+
+	// assigned data just changed - republish so CFL/RWY set outside vSID propagate
+
+	this->updateBridgeValues(FlightPlan);
 }
 
 void vsid::VSIDPlugin::OnFlightPlanDisconnect(EuroScopePlugIn::CFlightPlan FlightPlan)
@@ -5981,18 +5956,15 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 	//}
 
 	// Euroscope Plugin Bridge initialization
-	const ESB_Api_v1* api = ESB_Attach();
-	if (api == nullptr)
+	bridgeApi_ = ESB_Attach();
+	if (bridgeApi_ == nullptr)
 	{
 		// One message, once, using the shared wording so a user running several
 		// bridge-aware plugins is told the same thing once rather than three ways (A7).
 		if (++bridgeMissingTicks_ == BRIDGE_MISSING_TICKS_BEFORE_WARNING)
 			messageHandler->addGenError(ESB_MISSING_MESSAGE);
-		return;
 	}
-
-	if (bridgeProvider_ == nullptr && RegisterBridgeProvider(api) == false)
-		return;
+	else if (bridgeProvider_ == nullptr && !bridgeProviderConflict_) RegisterBridgeProvider();
 
 
 
@@ -6185,6 +6157,39 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 			else ++it;
 		}
 	}
+
+	// feed the bridge independently of the tag items: OnGetTagItem only runs for items the
+	// user actually put into a tag, so processing may never be triggered from there
+
+	if (bridgeApi_ != nullptr && bridgeProvider_ != nullptr && Counter % 5 == 0)
+	{
+		int newlyProcessed = 0;
+
+		for (EuroScopePlugIn::CFlightPlan fpln = this->FlightPlanSelectFirst(); fpln.IsValid(); fpln = this->FlightPlanSelectNext(fpln))
+		{
+			if (!this->activeAirports.contains(fpln.GetFlightPlanData().GetOrigin())) continue;
+			if (this->outOfVis(fpln)) continue;
+
+			if (this->processed.contains(fpln.GetCallsign()))
+			{
+				this->updateBridgeValues(fpln);
+				continue;
+			}
+
+			// same gate as the sid tag item - only aircraft still on the ground
+
+			EuroScopePlugIn::CRadarTarget rt = fpln.GetCorrelatedRadarTarget();
+
+			if (rt.IsValid() && rt.GetGS() > 50) continue;
+
+			// spread a busy airport over several sweeps instead of stalling one tick
+
+			if (newlyProcessed >= BRIDGE_SWEEP_MAX_NEW) continue;
+
+			this->autoProcessFpln(fpln);
+			++newlyProcessed;
+		}
+	}
 }
 
 void vsid::VSIDPlugin::deleteScreen(int id)
@@ -6238,7 +6243,7 @@ void vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugI
 * END ES FUNCTIONS
 */
 
-bool vsid::VSIDPlugin::RegisterBridgeProvider(const ESB_Api_v1* api)
+bool vsid::VSIDPlugin::RegisterBridgeProvider()
 {
 	// The doc strings are what ".esb schema rampagent" prints, and in practice the only
 	// documentation a consumer will read (B1.3).
@@ -6262,7 +6267,7 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider(const ESB_Api_v1* api)
 	decl.field_count = static_cast<uint32_t>(std::size(fields));
 	decl.module = ESB_SelfModule();
 
-	const ESB_Status status = api->register_provider(&decl, &bridgeProvider_);
+	const ESB_Status status = bridgeApi_->register_provider(&decl, &bridgeProvider_);
 	if (status != ESB_OK) {
 		bridgeProvider_ = nullptr;
 
@@ -6276,10 +6281,10 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider(const ESB_Api_v1* api)
 	}
 
 	// Resolved once and cached; never called from the publish loop (B1.7)
-	if (api->own_field(bridgeProvider_, BRIDGE_SID_FIELD, &bridgeSidField_) != ESB_OK ||
-		api->own_field(bridgeProvider_, BRIDGE_RWY_FIELD, &bridgeRwyField_) != ESB_OK ||
-		api->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK) {
-		api->unregister_provider(bridgeProvider_);
+	if (bridgeApi_->own_field(bridgeProvider_, BRIDGE_SID_FIELD, &bridgeSidField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, BRIDGE_RWY_FIELD, &bridgeRwyField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK) {
+		bridgeApi_->unregister_provider(bridgeProvider_);
 		bridgeProvider_ = nullptr;
 		bridgeSidField_ = ESB_FIELD_NONE;
 		bridgeRwyField_ = ESB_FIELD_NONE;
@@ -6288,6 +6293,176 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider(const ESB_Api_v1* api)
 	}
 
 	return true;
+}
+
+void vsid::VSIDPlugin::autoProcessFpln(EuroScopePlugIn::CFlightPlan& FlightPlan)
+{
+	EuroScopePlugIn::CFlightPlanData fplnData = FlightPlan.GetFlightPlanData();
+	std::string callsign = FlightPlan.GetCallsign();
+	auto [blockSid, blockRwy] = vsid::fplnhelper::getAtcBlock(FlightPlan);
+
+	bool checkOnly = !this->activeAirports[fplnData.GetOrigin()].settings["auto"];
+
+	if (!checkOnly)
+	{
+		if (FlightPlan.GetClearenceFlag() ||
+			std::string(fplnData.GetPlanType()) == "V")/* ||
+			(atcBlock.first != "" && atcBlock.first != fplnData.GetOrigin())*/
+		{
+			checkOnly = true;
+		}
+		else if (!FlightPlan.GetClearenceFlag() && blockSid != fplnData.GetOrigin() && fplnData.IsAmended())
+		{
+			// prevent automode to use rwys set before
+			blockRwy = "";
+		}
+	}
+	if (blockRwy != "" &&
+		(vsid::fplnhelper::findRemarks(FlightPlan, "VSID/RWY") ||
+			blockSid != fplnData.GetOrigin() ||
+			fplnData.IsAmended())
+		)
+	{
+		vsid::Logger::log(LogLevel::Debug, std::format("[{}] not yet processed, calling processFlightplan with atcRwy [{}] {}",
+			callsign, blockRwy, (!checkOnly) ? "and setting the fpln." : "and only checking the fpln"), vsid::DebugLevel::Sid);
+
+		this->processFlightplan(FlightPlan, checkOnly, blockRwy);
+	}
+	else
+	{
+		vsid::Logger::log(LogLevel::Debug, std::format("[{}] not yet processed, calling processFlightplan without atcRwy {}",
+			callsign, (!checkOnly) ? "and setting the fpln." : "and only checking the fpln"), vsid::DebugLevel::Sid);
+
+		this->processFlightplan(FlightPlan, checkOnly);
+	}
+}
+
+void vsid::VSIDPlugin::updateBridgeValues(EuroScopePlugIn::CFlightPlan FlightPlan)
+{
+	if (this->bridgeApi_ == nullptr || this->bridgeProvider_ == nullptr) return;
+	if (!FlightPlan.IsValid()) return;
+
+	std::string callsign = FlightPlan.GetCallsign();
+
+	if (!this->processed.contains(callsign)) return;
+
+	EuroScopePlugIn::CFlightPlanData fplnData = FlightPlan.GetFlightPlanData();
+	std::string adep = fplnData.GetOrigin();
+
+	if (!this->activeAirports.contains(adep)) return;
+
+	ESB_Aircraft ac = ESB_AIRCRAFT_NONE;
+	if (this->bridgeApi_->aircraft(callsign.c_str(), &ac) != ESB_OK) return;
+
+	const vsid::Fpln& fplnInfo = this->processed[callsign];
+	std::string sidName = fplnInfo.sid.name();
+	std::string customSidName = fplnInfo.customSid.name();
+
+	std::pair<std::string, std::string> atcBlock = vsid::fplnhelper::getAtcBlock(FlightPlan);
+
+	if (std::find(atcBlock.first.begin(), atcBlock.first.end(), 'x') != atcBlock.first.end() || // #refactor - remove checks for xX
+		std::find(atcBlock.first.begin(), atcBlock.first.end(), 'X') != atcBlock.first.end())
+	{
+		atcBlock.first = vsid::fplnhelper::splitTransition(atcBlock.first).first;
+	}
+
+	// SID - mirrors the sid tag item text
+
+	std::string sidValue;
+
+	if (atcBlock.first != "" && atcBlock.first != adep)
+	{
+		sidValue = atcBlock.first;
+	}
+	else if (std::string(fplnData.GetPlanType()) == "V")
+	{
+		sidValue = "VFR";
+	}
+	else if ((atcBlock.first == adep &&
+		fplnInfo.atcRWY &&
+		!vsid::utils::contains(fplnInfo.customSid.rwys, atcBlock.second)) ||
+		(fplnInfo.sid.empty() && fplnInfo.customSid.empty())
+		)
+	{
+		if (!fplnInfo.validEquip) sidValue = "EQUIP";
+		else if (fplnInfo.sidWpt == "") sidValue = "MANUAL";
+		else sidValue = fplnInfo.sidWpt;
+	}
+	else if (customSidName != "") sidValue = customSidName;
+	else sidValue = sidName;
+
+	// RWY - mirrors the rwy tag item text
+
+	std::string rwyValue;
+
+	if (atcBlock.second != "" && fplnInfo.atcRWY)
+	{
+		rwyValue = atcBlock.second;
+	}
+	else
+	{
+		if (!fplnInfo.sid.empty())
+		{
+			bool arrAsDep = false;
+			const std::string& sidArea = fplnInfo.sid.area;
+
+			if (sidArea != "" && this->activeAirports[adep].areas.contains(sidArea) &&
+				this->activeAirports[adep].areas[sidArea].isActive &&
+				this->activeAirports[adep].areas[sidArea].inside(FlightPlan.GetFPTrackPosition().GetPosition()))
+			{
+				arrAsDep = this->activeAirports[adep].areas[sidArea].arrAsDep;
+			}
+
+			for (const std::string& rwy : fplnInfo.sid.rwys)
+			{
+				if (this->activeAirports[adep].isDepRwy(rwy, arrAsDep))
+				{
+					rwyValue = rwy;
+					break;
+				}
+			}
+		}
+
+		if (rwyValue == "") rwyValue = "---";
+	}
+
+	// CFL - mirrors the climb tag item text
+
+	int transAlt = this->activeAirports[adep].transAlt;
+	int tempAlt = 0;
+
+	if (fplnInfo.sid.initialClimb != 0 &&
+		fplnInfo.customSid.empty() &&
+		(atcBlock.first == sidName || atcBlock.first == "" || atcBlock.first == adep)
+		)
+	{
+		tempAlt = (FlightPlan.GetFinalAltitude() < fplnInfo.sid.initialClimb) ? FlightPlan.GetFinalAltitude() : fplnInfo.sid.initialClimb;
+	}
+	else if (fplnInfo.customSid.initialClimb != 0 &&
+		(atcBlock.first == customSidName || atcBlock.first == "" || atcBlock.first == adep)
+		)
+	{
+		tempAlt = (FlightPlan.GetFinalAltitude() < fplnInfo.customSid.initialClimb) ? FlightPlan.GetFinalAltitude() : fplnInfo.customSid.initialClimb;
+	}
+
+	int cfl = (FlightPlan.GetClearedAltitude() == FlightPlan.GetFinalAltitude()) ? tempAlt : FlightPlan.GetClearedAltitude();
+	std::string cflValue;
+
+	if (cfl == 0) cflValue = "---";
+	else if (cfl <= transAlt) cflValue = std::string("A").append(std::to_string(cfl / 100));
+	else if (cfl / 100 >= 100) cflValue = std::to_string(cfl / 100);
+	else cflValue = std::string("0").append(std::to_string(cfl / 100));
+
+	// ESB_Str borrows the buffer, so the strings have to outlive the set_ac call
+
+	ESB_Value val = ESB_Str(sidValue.c_str());
+	this->bridgeApi_->set_ac(this->bridgeProvider_, ac, this->bridgeSidField_, &val);
+
+	val = ESB_Str(rwyValue.c_str());
+	this->bridgeApi_->set_ac(this->bridgeProvider_, ac, this->bridgeRwyField_, &val);
+
+	val = ESB_Str(cflValue.c_str());
+	this->bridgeApi_->set_ac(this->bridgeProvider_, ac, this->bridgeCflField_, &val);
 }
 
 void vsid::VSIDPlugin::exit()
