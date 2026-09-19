@@ -4493,8 +4493,6 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 		return false;
 	}
 
-	vsid::Logger::log(LogLevel::Warning, std::format("Failed to parse command [{}]. It is probably invalid.", sCommandLine));
-
 	return false;
 }
 
