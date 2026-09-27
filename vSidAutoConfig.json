@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "enabledByDefault": true,
+  "references": {
+    "LFPG": {
+      "source": "both",
+      "groups": {
+        "east": ["08L", "08R", "09L", "09R"],
+        "west": ["26L", "26R", "27L", "27R"]
+      },
+      "ignore": []
+    },
+    "LFPO": {
+      "source": "both",
+      "groups": {
+        "east": ["06", "07"],
+        "west": ["24", "25"]
+      },
+      "ignore": ["02", "20"]
+    }
+  },
+  "profiles": [
+    {
+      "name": "West Linked",
+      "when": {"LFPG": "west", "LFPO": "west"},
+      "apply": {
+        "LFPG": {"opposing": false},
+        "LFPO": {"opposing": false},
+        "LFPB": {"opposing": false},
+        "LFPN": {"wlpg": true, "wipg": false, "elpg": false, "eipg": false},
+        "LFPT": {"wlpg": true, "wipg": false, "elpg": false, "eipg": false},
+        "LFPV": {"wlpg": true, "wipg": false, "elpg": false, "eipg": false}
+      }
+    },
+    {
+      "name": "West Unlinked",
+      "when": {"LFPG": "west", "LFPO": "east"},
+      "apply": {
+        "LFPG": {"opposing": true},
+        "LFPO": {"opposing": true},
+        "LFPB": {"opposing": true},
+        "LFPN": {"wlpg": false, "wipg": true, "elpg": false, "eipg": false},
+        "LFPT": {"wlpg": false, "wipg": true, "elpg": false, "eipg": false},
+        "LFPV": {"wlpg": false, "wipg": true, "elpg": false, "eipg": false}
+      }
+    },
+    {
+      "name": "East Linked",
+      "when": {"LFPG": "east", "LFPO": "east"},
+      "apply": {
+        "LFPG": {"opposing": false},
+        "LFPO": {"opposing": false},
+        "LFPB": {"opposing": false},
+        "LFPN": {"wlpg": false, "wipg": false, "elpg": true, "eipg": false},
+        "LFPT": {"wlpg": false, "wipg": false, "elpg": true, "eipg": false},
+        "LFPV": {"wlpg": false, "wipg": false, "elpg": true, "eipg": false}
+      }
+    },
+    {
+      "name": "East Unlinked",
+      "when": {"LFPG": "east", "LFPO": "west"},
+      "apply": {
+        "LFPG": {"opposing": true},
+        "LFPO": {"opposing": true},
+        "LFPB": {"opposing": true},
+        "LFPN": {"wlpg": false, "wipg": false, "elpg": false, "eipg": true},
+        "LFPT": {"wlpg": false, "wipg": false, "elpg": false, "eipg": true},
+        "LFPV": {"wlpg": false, "wipg": false, "elpg": false, "eipg": true}
+      }
+    },
+    {
+      "name": "CDG West",
+      "when": {"LFPG": "west"},
+      "apply": {"LFOB": {"pgeast": false}}
+    },
+    {
+      "name": "CDG East",
+      "when": {"LFPG": "east"},
+      "apply": {"LFOB": {"pgeast": true}}
+    }
+  ]
+}

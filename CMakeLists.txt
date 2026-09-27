@@ -113,6 +113,9 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # DLL source files
 set(SOURCES 
+    autoconfiguration.cpp
+    autoconfiguration_plugin.cpp
+    bridgeconfiguration_plugin.cpp
     area.cpp
     configparser.cpp
     crashhandler.cpp
@@ -167,4 +170,22 @@ target_link_libraries(vSID
         ${_curl_target}
         EuroScopePlugInDLL.lib
         dbghelp
+)
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(bridgeconfiguration_test tests/bridgeconfiguration_test.cpp)
+    add_test(NAME bridgeconfiguration COMMAND bridgeconfiguration_test)
+    add_executable(autoconfiguration_test tests/autoconfiguration_test.cpp autoconfiguration.cpp)
+    add_test(NAME autoconfiguration COMMAND autoconfiguration_test "${CMAKE_SOURCE_DIR}/vSidAutoConfig.json")
+endif()
+
+# Keep the editable Auto configuration beside the built DLL.
+add_custom_target(vsid_runtime_files ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/vSidAutoConfig.json"
+        "${CMAKE_SOURCE_DIR}/AUTO_CONFIGURATION.md"
+        "$<TARGET_FILE_DIR:vSID>"
+    DEPENDS vSID
+    VERBATIM
 )
