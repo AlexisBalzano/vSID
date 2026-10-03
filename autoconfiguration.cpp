@@ -384,6 +384,12 @@ namespace vsid::autoconfig
 		return before != rules;
 	}
 
+	State Controller::stateFor(const std::string& icao) const
+	{
+		const auto it = this->status.find(upper(icao));
+		return it != this->status.end() ? it->second : State{};
+	}
+
 	std::vector<std::string> Controller::missingRunways(const RunwayInventory& inventory) const
 	{
 		std::vector<std::string> result;

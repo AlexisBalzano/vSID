@@ -147,6 +147,12 @@ It rejects unknown/duplicate keys and invalid values before changing anything, a
 observes the same managed-key override policy as `.vsid rule`. The existing singular
 command keeps its toggle semantics. All commands use the normal debug logging path.
 
+Rule changes through `.vsid rules` and Auto configuration commands invalidate
+affected uncleared flights at SID-assignment Auto airports, preserving their saved
+flight information so normal processing can assign SIDs under the new rules.
+Other affected flights have their suggestions refreshed. Airport status lookups
+are case-insensitive, and bridge snapshots use uppercase airport codes.
+
 ### Building and verification
 
 ```text

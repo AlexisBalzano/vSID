@@ -37,7 +37,7 @@ void vsid::VSIDPlugin::rememberManualConfiguration(std::string_view icao, std::s
 		Logger::log(LogLevel::Info, std::format("[{}] Auto configuration suspended by manual rule selection. Use .vsid autoconfig {} auto to resume.", it->first, it->first));
 }
 
-void vsid::VSIDPlugin::updateAutoConfiguration(bool refreshSuggestions)
+void vsid::VSIDPlugin::updateAutoConfiguration(bool refreshFlights)
 {
 	if (!this->autoConfigurationLoadAttempted) this->loadAutoConfiguration();
 	autoconfig::Snapshot snapshot;
@@ -78,24 +78,17 @@ void vsid::VSIDPlugin::updateAutoConfiguration(bool refreshSuggestions)
 		if (this->autoConfiguration.apply(icao, snapshot, rules))
 		{
 			for (const auto& [key, value] : rules) airport.customRules.at(key) = value;
-			changed.insert(icao);
+			changed.insert(utils::toupper(icao));
 		}
-		const auto& status = this->autoConfiguration.statuses().at(icao);
+		const auto key = utils::toupper(icao);
+		const auto status = this->autoConfiguration.stateFor(icao);
 		if ((this->autoConfiguration.enabled || this->autoConfiguration.isManual(icao)) &&
-			(!previousStatus.contains(icao) || previousStatus.at(icao) != status))
+			(!previousStatus.contains(key) || previousStatus.at(key) != status))
 			Logger::log(LogLevel::Info, std::format("[{}] Auto configuration: {}", icao, autoconfig::describe(status)));
 	}
 
 	this->publishBridgeConfiguration();
-	if (!refreshSuggestions || changed.empty()) return;
-	// Refresh suggestions only. This feature never grants a clearance or assigns a runway.
-	for (const auto& [callsign, info] : this->processed)
-	{
-		auto flight = this->FlightPlanSelect(callsign.c_str());
-		if (!flight.IsValid() || !changed.contains(flight.GetFlightPlanData().GetOrigin())) continue;
-		const auto block = fplnhelper::getAtcBlock(flight);
-		this->processFlightplan(flight, true, block.second);
-	}
+	if (refreshFlights && !changed.empty()) this->refreshRuleConfiguration(changed);
 }
 
 bool vsid::VSIDPlugin::handleAutoConfigurationCommand(const vsid::Command& command)
@@ -183,13 +176,13 @@ bool vsid::VSIDPlugin::handleAutoConfigurationCommand(const vsid::Command& comma
 	}
 	for (const auto& [icao, airport] : this->activeAirports)
 	{
-		if (!filter.empty() && filter != icao) continue;
-		const auto& statuses = this->autoConfiguration.statuses();
+		const auto key = utils::toupper(icao);
+		if (!filter.empty() && filter != key) continue;
 		std::string rules;
 		for (const auto& [key, value] : airport.customRules)
 			rules += key + "=" + (value ? "ON " : "OFF ");
 		Logger::log(LogLevel::Info, std::format("[{}] {} | {}", icao,
-			statuses.contains(icao) ? autoconfig::describe(statuses.at(icao)) : "NOT_LOADED", rules));
+			autoconfig::describe(this->autoConfiguration.stateFor(icao)), rules));
 	}
 	return true;
 }

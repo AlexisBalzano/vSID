@@ -2,21 +2,22 @@
 #include "vSIDPlugin.h"
 #include "bridgeconfiguration.h"
 #include "flightplan.h"
+#include "configurationrefresh.h"
 
 /** @brief Publish actual rules and areas for every active airport without regional policy. */
 void vsid::VSIDPlugin::publishBridgeConfiguration()
 {
 	if (!this->bridgeApi_ || !this->bridgeProvider_) return;
 	bridgeconfig::Snapshot snapshot;
-	for (const auto& [icao, airport] : this->activeAirports)
+	for (const auto& [airportKey, airport] : this->activeAirports)
 	{
+		const auto icao = utils::toupper(airportKey);
 		snapshot.rules[icao] = { airport.customRules.begin(), airport.customRules.end() };
 		auto& areas = snapshot.areas[icao];
 		for (const auto& [name, area] : airport.areas) areas[name] = area.isActive;
 		const auto automatic = airport.settings.find("auto");
 		if (automatic != airport.settings.end()) snapshot.assignmentAuto[icao] = automatic->second;
-		const auto& states = this->autoConfiguration.statuses();
-		snapshot.states[icao] = states.contains(icao) ? states.at(icao) : autoconfig::State{};
+		snapshot.states[icao] = this->autoConfiguration.stateFor(airportKey);
 		if (this->autoConfiguration.isManual(icao)) snapshot.manualAirports.insert(icao);
 	}
 	const auto values = bridgeconfig::serialize(snapshot);
@@ -62,12 +63,30 @@ bool vsid::VSIDPlugin::handleRulesConfigurationCommand(const vsid::Command& comm
 	for (const auto& key : selected) this->rememberManualConfiguration(icao, key);
 	this->publishBridgeConfiguration();
 	Logger::log(LogLevel::Info, "[" + icao + "] Explicit rule selection applied.");
-	for (const auto& [callsign, info] : this->processed)
-	{
-		auto flight = this->FlightPlanSelect(callsign.c_str());
-		if (!flight.IsValid() || icao != flight.GetFlightPlanData().GetOrigin()) continue;
-		const auto block = fplnhelper::getAtcBlock(flight);
-		this->processFlightplan(flight, true, block.second);
-	}
+	this->refreshRuleConfiguration({ icao });
 	return true;
+}
+
+/** @brief Reassign affected uncleared automode flights and recheck remaining suggestions. */
+void vsid::VSIDPlugin::refreshRuleConfiguration(const std::set<std::string>& airports)
+{
+	configurationrefresh::refresh(this->processed,
+		[&](const std::string& callsign) { return this->FlightPlanSelect(callsign.c_str()); },
+		[&](const char* origin) { return airports.contains(utils::toupper(std::string(origin))); },
+		[&](const char* origin)
+		{
+			const auto airport = this->activeAirports.find(origin);
+			if (airport == this->activeAirports.end()) return false;
+			const auto automatic = airport->second.settings.find("auto");
+			return automatic != airport->second.settings.end() && automatic->second;
+		},
+		[&](const std::string& callsign, const auto& info)
+		{
+			fplnhelper::saveFplnInfo(callsign, info, this->savedFplnInfo);
+		},
+		[&](auto flight)
+		{
+			const auto block = fplnhelper::getAtcBlock(flight);
+			this->processFlightplan(flight, true, block.second);
+		});
 }

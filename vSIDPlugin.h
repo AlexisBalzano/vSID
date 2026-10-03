@@ -461,7 +461,8 @@ namespace vsid
 		std::set<std::string> autoConfigurationRunwayWarnings;
 		bool loadAutoConfiguration();
 		bool handleAutoConfigurationCommand(const vsid::Command& command);
-		void updateAutoConfiguration(bool refreshSuggestions);
+		void updateAutoConfiguration(bool refreshFlights);
+		void refreshRuleConfiguration(const std::set<std::string>& airports);
 		void rememberManualConfiguration(std::string_view icao, std::string_view key);
 		// buffer to tmp store extracted values after ese parsing until update
 		std::optional<vsid::EseBuffer> eseBuffer_; 

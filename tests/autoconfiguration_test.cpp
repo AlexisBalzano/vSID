@@ -41,7 +41,12 @@ void testOverrides()
 	check(load(controller, configuration()), "load generic mapping");
 	Rules rules{{"east", false}, {"west", true}, {"night", false}};
 	Snapshot east{{"EGLL", {{"09L"}, {"09R"}}}};
-	check(controller.apply("EGKK", east, rules) && rules.at("east") && !rules.at("west"), "default both + exclusive enable arrays");
+	check(controller.stateFor("egkk").code == Status::NotLoaded, "unseen airport status defaults without throwing");
+	check(controller.apply("egkk", east, rules) && rules.at("east") && !rules.at("west"), "lowercase airport + default both + exclusive enable arrays");
+	check(controller.statuses().at("EGKK").code == Status::Matched && controller.statuses().at("EGKK").profile == "East",
+		"lowercase airport application records status under its canonical uppercase key");
+	check(controller.stateFor("egkk") == controller.stateFor("EGKK") && controller.stateFor("EgKk").code == Status::Matched,
+		"status lookup for lowercase and mixed-case sector airport keys finds the matching profile");
 	rules.at("night") = true;
 	check(!controller.rememberRuleChange("egkk", "NIGHT", rules) && !controller.isManual("EGKK"), "unmanaged toggle never creates override");
 	Snapshot west{{"EGLL", {{}, {"27L"}}}};

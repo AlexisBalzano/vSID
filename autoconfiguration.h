@@ -71,6 +71,8 @@ namespace vsid::autoconfig
 		/** @brief Apply only managed keys; overrides survive airport reactivation. */
 		bool apply(const std::string& icao, const Snapshot& runways, Rules& rules);
 		const std::map<std::string, State>& statuses() const { return this->status; }
+		/** @brief Read an airport status case-insensitively; unseen airports are NotLoaded. */
+		State stateFor(const std::string& icao) const;
 		std::vector<std::string> missingRunways(const RunwayInventory& inventory) const;
 
 	private:
