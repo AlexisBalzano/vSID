@@ -39,6 +39,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "include/es/EuroScopePlugIn.h"
 #include "airport.h"
+#include "autoconfiguration.h"
 #include "constants.h"
 #include "flightplan.h"
 #include "configparser.h"
@@ -395,6 +396,8 @@ namespace vsid
 		// Qualifier: 
 		//************************************
 		bool RegisterBridgeProvider();
+		void publishBridgeConfiguration();
+		bool handleRulesConfigurationCommand(const vsid::Command& command);
 
 		//************************************
 		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
@@ -453,6 +456,14 @@ namespace vsid
 			int FunctionId, POINT Pt, RECT Area);
 		
 	private:
+		vsid::autoconfig::Controller autoConfiguration;
+		bool autoConfigurationLoadAttempted = false;
+		std::set<std::string> autoConfigurationRunwayWarnings;
+		bool loadAutoConfiguration();
+		bool handleAutoConfigurationCommand(const vsid::Command& command);
+		void updateAutoConfiguration(bool refreshFlights);
+		void refreshRuleConfiguration(const std::set<std::string>& airports);
+		void rememberManualConfiguration(std::string_view icao, std::string_view key);
 		// buffer to tmp store extracted values after ese parsing until update
 		std::optional<vsid::EseBuffer> eseBuffer_; 
 		std::atomic<bool> eseDataRdy_{ false }; // flag to update if parsed data is rdy
@@ -532,6 +543,12 @@ namespace vsid
 		ESB_FieldId bridgeSidField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeRwyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeCflField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeRulesField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeAreasField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeAutoConfigField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeAutomaticModeField_ = ESB_FIELD_NONE;
+		std::map<ESB_FieldId, std::string> bridgeConfigurationCache_;
+		std::set<ESB_FieldId> bridgeConfigurationWarnings_;
 		int bridgeMissingTicks_ = 0;
 		bool bridgeProviderConflict_ = false; // Another module owns "vsid"; stop retrying
 

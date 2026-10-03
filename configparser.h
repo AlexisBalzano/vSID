@@ -108,6 +108,8 @@ namespace vsid
 		 *
 		 */
 		void loadMainConfig();
+		/** @brief Resolve airportConfigs relative to the loaded DLL, shared by both loaders. */
+		std::filesystem::path airportConfigDirectory() const;
 		/**
 		 * @brief Loads the grp config
 		 * 

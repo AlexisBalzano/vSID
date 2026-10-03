@@ -3475,6 +3475,8 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 		vsid::Command cmd = cmdOpt.value();
 
 		vsid::Logger::log(LogLevel::Debug, std::format("Executing command: [{}] with parameters [{}]", cmd.command, vsid::utils::join(cmd.params)), DebugLevel::Cmd);
+		if (this->handleAutoConfigurationCommand(cmd)) return true;
+		if (this->handleRulesConfigurationCommand(cmd)) return true;
 
 		/*if (!ControllerMyself().IsController())
 		{
@@ -3486,6 +3488,8 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 		{
 			vsid::Logger::log(LogLevel::Info, "Available commands: "
 				"version / "
+				"autoconfig on|off|status|reload / autoconfig ICAO auto|manual / "
+				"autoconfig resume all / rules ICAO KEY=on KEY2=off - set existing rules atomically / "
 				"auto [icao] - activate automode for icao(s) - sets force mode if lower atc online / "
 				"area [icao] [areaname] - toggle area(s) for icao / "
 				"rule icao [rulename] - toggle rule(s) for icao or lists rules if no rule is specified / "
@@ -3584,6 +3588,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 					if (auto it = airport.customRules.find(param); it != airport.customRules.end())
 					{
 						it->second = !it->second;
+						this->rememberManualConfiguration(icao, param);
 						rulesChanged = true;
 						ruleFound = true;
 
@@ -3613,6 +3618,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 						if (auto jt = airport.customRules.find(rule); jt != airport.customRules.end())
 						{
 							jt->second = !jt->second;
+							this->rememberManualConfiguration(icao, rule);
 							rulesChanged = true;
 
 							vsid::Logger::log(LogLevel::Info, std::format("[{}] Rule [{}] [{}]", icao, rule, jt->second ? "ON" : "OFF"));
@@ -3627,6 +3633,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 
 			if (rulesChanged)
 			{
+				publishBridgeConfiguration();
 				std::erase_if(this->processed, [&](const auto& pFpln) // remove uncleared fplns if apt is in auto-mode to apply changed rules
 					{
 						const auto& [callsign, fplnInfo] = pFpln;
@@ -4109,6 +4116,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 
 			if (areaChanged)
 			{
+				publishBridgeConfiguration();
 				std::erase_if(this->processed, [&](const auto& pFpln)
 					{
 						const auto& [callsign, fplnInfo] = pFpln;
@@ -4456,6 +4464,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 			{
 				vsid::Logger::log(LogLevel::Info, "Reloading main config...");
 				this->configParser.loadMainConfig();
+				this->autoConfigurationLoadAttempted = false;
 
 				return true;
 			}
@@ -5933,6 +5942,7 @@ void vsid::VSIDPlugin::UpdateActiveAirports()
 		}
 	}
 
+	this->updateAutoConfiguration(false);
 	vsid::Logger::log(LogLevel::Info, std::format("Airports updated. [{}] active.", this->activeAirports.size()));
 }
 
@@ -5963,6 +5973,7 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 			messageHandler->addGenError(ESB_MISSING_MESSAGE);
 	}
 	else if (bridgeProvider_ == nullptr && !bridgeProviderConflict_) RegisterBridgeProvider();
+	publishBridgeConfiguration();
 
 
 
@@ -6252,13 +6263,21 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		  "Runway assigned by the vSID service, empty when none is held" },
 		{ BRIDGE_CFL_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
 		  "CFL assigned by the vSID service, empty when none is held" },
+		{ "automode", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 4096,
+		  "SID assignment Auto per active airport: ICAO=0; or ICAO=1;" },
+		{ "rules", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports and their actual custom-rule booleans" },
+		{ "areas", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports and their actual area booleans" },
+		{ "autoconfig", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports: status enum, profile, detail and manual-override flag" },
 	};
 
 	ESB_ProviderDecl decl = {};
 	decl.struct_size = sizeof decl;
 	decl.provider_id = BRIDGE_PROVIDER_ID;
 	decl.schema_major = 1;
-	decl.schema_minor = 0;
+	decl.schema_minor = 1;
 	decl.display_name = "vSID";
 	decl.contact = "https://github.com/AlexisBalzano/vSID";
 	decl.fields = fields;
@@ -6281,15 +6300,26 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 	// Resolved once and cached; never called from the publish loop (B1.7)
 	if (bridgeApi_->own_field(bridgeProvider_, BRIDGE_SID_FIELD, &bridgeSidField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, BRIDGE_RWY_FIELD, &bridgeRwyField_) != ESB_OK ||
-		bridgeApi_->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK) {
+		bridgeApi_->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "automode", &bridgeAutomaticModeField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "rules", &bridgeRulesField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "areas", &bridgeAreasField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "autoconfig", &bridgeAutoConfigField_) != ESB_OK) {
 		bridgeApi_->unregister_provider(bridgeProvider_);
 		bridgeProvider_ = nullptr;
 		bridgeSidField_ = ESB_FIELD_NONE;
 		bridgeRwyField_ = ESB_FIELD_NONE;
 		bridgeCflField_ = ESB_FIELD_NONE;
+		bridgeAutomaticModeField_ = ESB_FIELD_NONE;
+		bridgeRulesField_ = ESB_FIELD_NONE;
+		bridgeAreasField_ = ESB_FIELD_NONE;
+		bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		return false;
 	}
 
+	bridgeConfigurationCache_.clear();
+	bridgeConfigurationWarnings_.clear();
+	publishBridgeConfiguration();
 	return true;
 }
 

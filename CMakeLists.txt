@@ -113,6 +113,9 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 
 # DLL source files
 set(SOURCES 
+    autoconfiguration.cpp
+    autoconfiguration_plugin.cpp
+    bridgeconfiguration_plugin.cpp
     area.cpp
     configparser.cpp
     crashhandler.cpp
@@ -168,3 +171,15 @@ target_link_libraries(vSID
         EuroScopePlugInDLL.lib
         dbghelp
 )
+
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(bridgeconfiguration_test tests/bridgeconfiguration_test.cpp autoconfiguration.cpp)
+    add_test(NAME bridgeconfiguration COMMAND bridgeconfiguration_test)
+    add_executable(autoconfiguration_test tests/autoconfiguration_test.cpp autoconfiguration.cpp)
+    add_test(NAME autoconfiguration COMMAND autoconfiguration_test)
+    set(VSID_AUTO_CONFIG_TEST_FILE "" CACHE FILEPATH "Optional separately maintained Auto configuration to validate")
+    if(VSID_AUTO_CONFIG_TEST_FILE)
+        add_test(NAME autoconfiguration_external COMMAND autoconfiguration_test "${VSID_AUTO_CONFIG_TEST_FILE}")
+    endif()
+endif()

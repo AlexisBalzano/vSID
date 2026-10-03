@@ -117,6 +117,9 @@ jobs:
       # remove --verbose for less verbosity
       run: cmake --build build --config Release --verbose
 
+    - name: Test Auto configuration and bridge state
+      run: ctest --test-dir build -C Release --output-on-failure
+
     - name: Rename PDB and MAP files
       shell: pwsh
       run: |
