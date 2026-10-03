@@ -1,74 +1,86 @@
 #pragma once
 
-#include <array>
-#include <optional>
-#include <string>
+#include "autoconfiguration.h"
+#include "include/nlohmann/json.hpp"
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
 #include <string_view>
 
-// vSMR's existing Paris bridge wire contract. This describes actual runtime
-// rules, not runway detection policy (which remains in vSidAutoConfig.json).
 namespace vsid::bridgeconfig
 {
-    inline constexpr std::array<std::string_view, 6> Airports = {
-        "LFPG", "LFPO", "LFPN", "LFPV", "LFPT", "LFOB"
-    };
-    inline constexpr std::array<std::string_view, 4> RegionalRules = {"WLPG", "ELPG", "WIPG", "EIPG"};
+	inline constexpr std::uint32_t ConfigurationMaxBytes = 65536;
+	inline constexpr std::uint32_t AutomaticModeMaxBytes = 4096;
+	using AirportRules = std::map<std::string, autoconfig::Rules>;
 
-    template<class Rules>
-    std::string paris(std::string_view airport, const Rules& rules, bool automatic)
-    {
-        char flow = '?', linked = '?';
-        if (airport == "LFPG" || airport == "LFPO")
-        {
-            // OPPOSING drives the SID rules; legacy LINKED aliases can be stale.
-            const auto opposing = rules.find("OPPOSING");
-            if (opposing != rules.end()) linked = opposing->second ? 'U' : 'L';
-        }
-        else
-        {
-            std::string_view selected;
-            for (const auto key : RegionalRules)
-            {
-                const auto rule = rules.find(std::string(key));
-                if (rule == rules.end() || !rule->second) continue;
-                if (!selected.empty()) return std::string(airport) + "=??" + (automatic ? "A;" : "M;");
-                selected = key;
-            }
-            if (!selected.empty())
-            {
-                flow = selected.front();
-                linked = selected[1] == 'L' ? 'L' : 'U';
-            }
-        }
-        return std::string(airport) + '=' + flow + linked + (automatic ? "A;" : "M;");
-    }
+	struct Snapshot
+	{
+		AirportRules rules;
+		AirportRules areas;
+		std::map<std::string, bool> assignmentAuto;
+		std::map<std::string, autoconfig::State> states;
+		std::set<std::string> manualAirports;
+	};
 
-    inline std::string taxi(std::optional<bool> north, std::optional<bool> south, bool otherActive = false)
-    {
-        if (!north || !south || *north != *south || otherActive) return "?";
-        return *north ? "M" : "G";
-    }
+	/** @brief Complete generic snapshots; JSON escapes arbitrary rule/profile names. */
+	inline std::map<std::string, std::string> serialize(const Snapshot& snapshot)
+	{
+		nlohmann::json states = nlohmann::json::object();
+		for (const auto& [icao, state] : snapshot.states)
+			states[icao] = {
+				{ "status", autoconfig::statusName(state.code) },
+				{ "profile", state.profile }, { "detail", state.detail },
+				{ "manual", snapshot.manualAirports.contains(icao) }
+			};
+		std::string automatic;
+		for (const auto& [icao, enabled] : snapshot.assignmentAuto)
+			if (icao.size() == 4) automatic += icao + (enabled ? "=1;" : "=0;");
+		return {
+			{ "rules", nlohmann::json(snapshot.rules).dump() },
+			{ "areas", nlohmann::json(snapshot.areas).dump() },
+			{ "autoconfig", states.dump() },
+			{ "automode", automatic }
+		};
+	}
 
-    // Validate before changing anything; never create missing airport rules.
-    template<class Rules>
-    bool select(Rules& rules, std::string_view airport, std::string_view selection)
-    {
-        if (airport == "LFPG" || airport == "LFPO")
-        {
-            if ((selection != "LINKED" && selection != "UNLINKED") || !rules.contains("OPPOSING")) return false;
-            rules.at("OPPOSING") = selection == "UNLINKED";
-            return true;
-        }
-        if (airport != "LFPN" && airport != "LFPT" && airport != "LFPV" && airport != "LFOB") return false;
-        bool recognized = false;
-        for (const auto key : RegionalRules)
-        {
-            if (!rules.contains(std::string(key))) return false;
-            recognized = recognized || key == selection;
-        }
-        if (!recognized) return false;
-        for (const auto key : RegionalRules) rules.at(std::string(key)) = key == selection;
-        if (auto east = rules.find("PGEAST"); east != rules.end()) east->second = selection.front() == 'E';
-        return true;
-    }
+	enum class Publication { Unchanged, Overflow, Published, Failed };
+
+	/** @brief Never replace a valid publication with an overflow placeholder. */
+	template<class Field, class Writer>
+	Publication publish(Field field, const std::string& value, std::size_t limit,
+		std::map<Field, std::string>& cache, Writer write)
+	{
+		if (value.size() > limit) return Publication::Overflow;
+		const auto previous = cache.find(field);
+		if (previous != cache.end() && previous->second == value) return Publication::Unchanged;
+		if (!write(value)) return Publication::Failed;
+		cache[field] = value;
+		return Publication::Published;
+	}
+
+	/** @brief Validate a complete explicit rule assignment before changing any rule. */
+	template<class Rules, class Parameters>
+	bool assign(Rules& rules, const Parameters& parameters, std::vector<std::string>& selected)
+	{
+		std::map<std::string, bool> changes;
+		for (const auto parameter : parameters)
+		{
+			const std::string token(parameter);
+			const auto separator = token.find('=');
+			if (separator == std::string::npos || separator == 0) return false;
+			auto key = token.substr(0, separator);
+			auto value = token.substr(separator + 1);
+			for (auto* text : { &key, &value })
+				std::transform(text->begin(), text->end(), text->begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+			if (value != "ON" && value != "OFF" && value != "1" && value != "0") return false;
+			if (!rules.contains(key) || !changes.emplace(key, value == "ON" || value == "1").second) return false;
+		}
+		if (changes.empty()) return false;
+		for (const auto& [key, value] : changes)
+		{
+			rules.at(key) = value;
+			selected.push_back(key);
+		}
+		return true;
+	}
 }

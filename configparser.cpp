@@ -432,6 +432,17 @@ void vsid::ConfigParser::loadMainConfig()
 	}
 }
 
+std::filesystem::path vsid::ConfigParser::airportConfigDirectory() const
+{
+	if (!this->vSidConfig.contains("airportConfigs") || !this->vSidConfig.at("airportConfigs").is_string()) return {};
+	const auto configured = this->vSidConfig.at("airportConfigs").get<std::string>();
+	if (configured.empty()) return {};
+	wchar_t modulePath[32768] = {};
+	const auto length = GetModuleFileNameW((HINSTANCE)&__ImageBase, modulePath, 32768);
+	if (length == 0 || length >= 32768) return {};
+	return (std::filesystem::path(modulePath).parent_path() / std::filesystem::path(configured)).lexically_normal();
+}
+
 void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, vsid::utils::CICompare>& activeAirports,
 										std::map<std::string, vsid::Airport::CustomRulesMap>& savedCustomRules,
 										std::map<std::string, std::map<std::string, bool>>& savedSettings,
@@ -440,17 +451,8 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 										std::map<std::string, vsid::Airport::CustomRwyRequestMap>& savedRwyRequests
 										)
 {
-	// get the current path where plugins .dll is stored
-	char path[MAX_PATH + 1] = { 0 };
-	GetModuleFileNameA((HINSTANCE)&__ImageBase, path, MAX_PATH);
-	PathRemoveFileSpecA(path);
-	std::filesystem::path basePath = path;
-
-	if (this->vSidConfig.contains("airportConfigs"))
-	{
-		basePath.append(this->vSidConfig.value("airportConfigs", "")).make_preferred();
-	}
-	else
+	const auto basePath = this->airportConfigDirectory();
+	if (basePath.empty())
 	{
 		vsid::Logger::log(vsid::LogLevel::Error, "No config path for airports in main config");
 		return;
@@ -480,6 +482,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 		{
 			if (!std::filesystem::is_directory(entry) && entry.extension() == ".json")
 			{
+				if (vsid::utils::svEqualCi(entry.filename().string(), "vSidAutoConfig.json")) continue;
 				std::ifstream configFile(entry.string());
 
 				try

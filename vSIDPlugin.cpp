@@ -3474,10 +3474,9 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 	{
 		vsid::Command cmd = cmdOpt.value();
 
-		if (this->handleAutoConfigurationCommand(cmd)) return true;
-		if (this->handleParisConfigurationCommand(cmd)) return true;
-
 		vsid::Logger::log(LogLevel::Debug, std::format("Executing command: [{}] with parameters [{}]", cmd.command, vsid::utils::join(cmd.params)), DebugLevel::Cmd);
+		if (this->handleAutoConfigurationCommand(cmd)) return true;
+		if (this->handleRulesConfigurationCommand(cmd)) return true;
 
 		/*if (!ControllerMyself().IsController())
 		{
@@ -3490,6 +3489,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 			vsid::Logger::log(LogLevel::Info, "Available commands: "
 				"version / "
 				"autoconfig on|off|status|reload / autoconfig ICAO auto|manual / "
+				"autoconfig resume all / rules ICAO KEY=on KEY2=off - set existing rules atomically / "
 				"auto [icao] - activate automode for icao(s) - sets force mode if lower atc online / "
 				"area [icao] [areaname] - toggle area(s) for icao / "
 				"rule icao [rulename] - toggle rule(s) for icao or lists rules if no rule is specified / "
@@ -3588,7 +3588,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 					if (auto it = airport.customRules.find(param); it != airport.customRules.end())
 					{
 						it->second = !it->second;
-						this->rememberManualConfiguration(icao);
+						this->rememberManualConfiguration(icao, param);
 						rulesChanged = true;
 						ruleFound = true;
 
@@ -3618,7 +3618,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 						if (auto jt = airport.customRules.find(rule); jt != airport.customRules.end())
 						{
 							jt->second = !jt->second;
-							this->rememberManualConfiguration(icao);
+							this->rememberManualConfiguration(icao, rule);
 							rulesChanged = true;
 
 							vsid::Logger::log(LogLevel::Info, std::format("[{}] Rule [{}] [{}]", icao, rule, jt->second ? "ON" : "OFF"));
@@ -4464,6 +4464,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 			{
 				vsid::Logger::log(LogLevel::Info, "Reloading main config...");
 				this->configParser.loadMainConfig();
+				this->autoConfigurationLoadAttempted = false;
 
 				return true;
 			}
@@ -6264,17 +6265,19 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		  "CFL assigned by the vSID service, empty when none is held" },
 		{ "automode", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 4096,
 		  "SID assignment Auto per active airport: ICAO=0; or ICAO=1;" },
-		{ "paris", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 54,
-		  "Live Paris rules: ICAO=WLA; (W/E/? flow, L/U/? link, A/M configuration control)" },
-		{ "lfpg_taxi", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 1,
-		  "Live LFPG areas: M minimum taxiing, G ground crossing, ? mixed/missing/inactive" },
+		{ "rules", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports and their actual custom-rule booleans" },
+		{ "areas", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports and their actual area booleans" },
+		{ "autoconfig", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports: status enum, profile, detail and manual-override flag" },
 	};
 
 	ESB_ProviderDecl decl = {};
 	decl.struct_size = sizeof decl;
 	decl.provider_id = BRIDGE_PROVIDER_ID;
 	decl.schema_major = 1;
-	decl.schema_minor = 4;
+	decl.schema_minor = 1;
 	decl.display_name = "vSID";
 	decl.contact = "https://github.com/AlexisBalzano/vSID";
 	decl.fields = fields;
@@ -6299,20 +6302,23 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		bridgeApi_->own_field(bridgeProvider_, BRIDGE_RWY_FIELD, &bridgeRwyField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, "automode", &bridgeAutomaticModeField_) != ESB_OK ||
-		bridgeApi_->own_field(bridgeProvider_, "paris", &bridgeParisField_) != ESB_OK ||
-		bridgeApi_->own_field(bridgeProvider_, "lfpg_taxi", &bridgeTaxiField_) != ESB_OK) {
+		bridgeApi_->own_field(bridgeProvider_, "rules", &bridgeRulesField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "areas", &bridgeAreasField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "autoconfig", &bridgeAutoConfigField_) != ESB_OK) {
 		bridgeApi_->unregister_provider(bridgeProvider_);
 		bridgeProvider_ = nullptr;
 		bridgeSidField_ = ESB_FIELD_NONE;
 		bridgeRwyField_ = ESB_FIELD_NONE;
 		bridgeCflField_ = ESB_FIELD_NONE;
 		bridgeAutomaticModeField_ = ESB_FIELD_NONE;
-		bridgeParisField_ = ESB_FIELD_NONE;
-		bridgeTaxiField_ = ESB_FIELD_NONE;
+		bridgeRulesField_ = ESB_FIELD_NONE;
+		bridgeAreasField_ = ESB_FIELD_NONE;
+		bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		return false;
 	}
 
 	bridgeConfigurationCache_.clear();
+	bridgeConfigurationWarnings_.clear();
 	publishBridgeConfiguration();
 	return true;
 }
