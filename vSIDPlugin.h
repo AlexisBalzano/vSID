@@ -441,7 +441,7 @@ namespace vsid
 		// Method:    callExtFunc
 		// FullName:  vsid::VSIDPlugin::callExtFunc
 		// Access:    public 
-		// Returns:   void
+		// Returns:   bool - true if a screen executed the function, false if no screen is available
 		// Qualifier:
 		// Parameter: const char * sCallsign - acft which TAG is clicked
 		// Parameter: const char * sItemPlugInName - item provider plugin (for base ES use NULL)
@@ -452,9 +452,23 @@ namespace vsid
 		// Parameter: POINT Pt - mouse position
 		// Parameter: RECT Area - area covered by tag item
 		//************************************
-		void callExtFunc(const char* sCallsign, const char* sItemPlugInName, int ItemCode, const char* sItemString, const char* sFunctionPlugInName,
+		bool callExtFunc(const char* sCallsign, const char* sItemPlugInName, int ItemCode, const char* sItemString, const char* sFunctionPlugInName,
 			int FunctionId, POINT Pt, RECT Area);
 		
+		//************************************
+		// Description: Sets or unsets the ES clearance flag. Uses the ES tag function if a radar screen is available,
+		// otherwise falls back to the ES scratch pad keywords (CLEA / NOTC) as vSID only receives a screen
+		// for display types it is allowed to draw on.
+		// Method:    setClearanceFlag
+		// FullName:  vsid::VSIDPlugin::setClearanceFlag
+		// Access:    public 
+		// Returns:   void
+		// Qualifier:
+		// Parameter: EuroScopePlugIn::CFlightPlan & FlightPlan
+		// Parameter: bool cleared - the requested clearance flag state
+		//************************************
+		void setClearanceFlag(EuroScopePlugIn::CFlightPlan& FlightPlan, bool cleared);
+
 	private:
 		vsid::autoconfig::Controller autoConfiguration;
 		bool autoConfigurationLoadAttempted = false;
@@ -514,6 +528,8 @@ namespace vsid
 		//************************************
 		std::map<int, std::shared_ptr<vsid::Display>> radarScreens = {};
 		int screenId = 0;
+		// if the user was informed that no radar screen is available for screen dependent functions
+		bool noScreenInformed = false;
 		// pointer to plugin itself for data exchange and control of loading/unloading
 		std::shared_ptr<vsid::VSIDPlugin> shared;
 		// internal storage of parsed atc stations
