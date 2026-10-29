@@ -2515,8 +2515,7 @@ void vsid::VSIDPlugin::OnFunctionCall(int FunctionId, const char * sItemString, 
 
 			auto [atcSid, atcRwy] = vsid::fplnhelper::getAtcBlock(fpln);
 
-			this->callExtFunc(callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_TYPE_CALLSIGN,
-				callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_FUNCTION_SET_CLEARED_FLAG, POINT(), RECT());
+			this->setClearanceFlag(fpln, !fpln.GetClearenceFlag());
 
 			if (this->processed.contains(callsign) && std::string(fpln.GetFlightPlanData().GetPlanType()) != "V" && // #checkforremoval - .contains check now above FunctionId block
 				(atcSid == "" || atcSid == adep))
@@ -2529,11 +2528,7 @@ void vsid::VSIDPlugin::OnFunctionCall(int FunctionId, const char * sItemString, 
 
 			auto [atcSid, atcRwy] = vsid::fplnhelper::getAtcBlock(fpln);
 
-			if (!fpln.GetClearenceFlag())
-			{
-				this->callExtFunc(callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_TYPE_CALLSIGN,
-					callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_FUNCTION_SET_CLEARED_FLAG, POINT(), RECT());
-			}
+			this->setClearanceFlag(fpln, true);
 
 			if (this->processed.contains(callsign) && std::string(fpln.GetFlightPlanData().GetPlanType()) != "V" && // #checkforremoval - .contains check now above FunctionId block
 				(atcSid == "" || atcSid == adep))
@@ -5005,7 +5000,7 @@ void vsid::VSIDPlugin::OnFlightPlanControllerAssignedDataUpdate(EuroScopePlugIn:
 	if (DataType == EuroScopePlugIn::CTR_DATA_TYPE_CLEARENCE_FLAG) //#dev updating sync release for ES clearance flag as it is not seen in scratch pad
 	{
 		vsid::Logger::log(LogLevel::Debug, std::format("[{}] received clearance flag update", callsign), vsid::DebugLevel::Dev);
-		this->syncManager.update(FlightPlan, "CLEA");
+		this->syncManager.update(FlightPlan, FlightPlan.GetClearenceFlag() ? "CLEA" : "NOTC");
 	}
 
 	if (this->activeAirports.contains(adep))
@@ -6225,7 +6220,7 @@ void vsid::VSIDPlugin::deleteScreen(int id)
 	vsid::Logger::log(LogLevel::Debug, std::format("(deleteScreen) size after deletion [{}]", this->radarScreens.size()), vsid::DebugLevel::Menu);
 }
 
-void vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugInName, int ItemCode, const char* sItemString, const char* sFunctionPlugInName,
+bool vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugInName, int ItemCode, const char* sItemString, const char* sFunctionPlugInName,
 	int FunctionId, POINT Pt, RECT Area)
 {
 	if (this->radarScreens.size() > 0)
@@ -6237,7 +6232,7 @@ void vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugI
 			if (screen)
 			{
 				screen->StartTagFunction(sCallsign, sItemPlugInName, ItemCode, sItemString, sFunctionPlugInName, FunctionId, Pt, Area);
-				break;
+				return true;
 			}
 			else
 			{
@@ -6246,6 +6241,33 @@ void vsid::VSIDPlugin::callExtFunc(const char* sCallsign, const char* sItemPlugI
 			}
 		}
 	}
+	else if (!this->noScreenInformed)
+	{
+		// ES only creates a screen for the plugin on display types it is allowed to draw on
+
+		vsid::Logger::log(LogLevel::Warning, "vSID has no radar screen. Allow vSID to draw on your display types "
+			"(OTHER SET > Plug-ins) for screen dependent functions to work.");
+		this->noScreenInformed = true;
+	}
+
+	return false;
+}
+
+void vsid::VSIDPlugin::setClearanceFlag(EuroScopePlugIn::CFlightPlan& FlightPlan, bool cleared)
+{
+	if (FlightPlan.GetClearenceFlag() == cleared) return;
+
+	std::string callsign = FlightPlan.GetCallsign();
+
+	// the ES clearance flag function toggles the flag
+
+	if (this->callExtFunc(callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_TYPE_CALLSIGN,
+		callsign.c_str(), nullptr, EuroScopePlugIn::TAG_ITEM_FUNCTION_SET_CLEARED_FLAG, POINT(), RECT()))
+		return;
+
+	vsid::Logger::log(LogLevel::Debug, std::format("[{}] no radar screen to toggle the clearance flag. Using scratch pad sync.", callsign), vsid::DebugLevel::Sync);
+
+	this->syncManager.add(callsign, cleared ? "CLEA" : "NOTC", FlightPlan.GetControllerAssignedData().GetScratchPadString());
 }
 
 /*
