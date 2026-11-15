@@ -1572,8 +1572,6 @@ bool vsid::VSIDPlugin::outOfVis(EuroScopePlugIn::CFlightPlan& FlightPlan)
 	const std::string callsign = FlightPlan.GetCallsign();
 	const EuroScopePlugIn::CController me = ControllerMyself();
 	const int myRange = me.GetRange();
-	const std::string myCallsign = me.GetCallsign();
-	const double myFreq = me.GetPrimaryFrequency();
 	const EuroScopePlugIn::CPosition myPos = me.GetPosition();
 	const EuroScopePlugIn::CRadarTarget rt = this->RadarTargetSelect(callsign.c_str());
 
@@ -1582,46 +1580,10 @@ bool vsid::VSIDPlugin::outOfVis(EuroScopePlugIn::CFlightPlan& FlightPlan)
 	{
 		if (!rt.IsValid()) return false;
 
-		const EuroScopePlugIn::CPosition rtPos = rt.GetPosition().GetPosition();
-
-		if (myPos.DistanceTo(rtPos) > myRange)
-		{
-			for (auto& atc : this->sectionAtc)
-			{
-				if (myCallsign == atc.callsign || atcFreqMatch(ControllerMyself(), atc))
-				{
-					if (atc.visPoints.empty()) return true;
-
-					return std::all_of(atc.visPoints.begin(), atc.visPoints.end(), [myRange, rtPos](const EuroScopePlugIn::CPosition& visPoint)
-						{
-							return visPoint.DistanceTo(rtPos) > myRange;
-						});
-				}
-			}
-			return true;
-		}
-		return false;
+		return myPos.DistanceTo(rt.GetPosition().GetPosition()) > myRange;
 	}
 
-	const EuroScopePlugIn::CPosition fpPos = FlightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition();
-
-	if (myPos.DistanceTo(fpPos) > myRange)
-	{
-		for (auto& atc : this->sectionAtc)
-		{
-			if (myCallsign == atc.callsign || myFreq == atc.freq)
-			{
-				if (atc.visPoints.empty()) return true;
-
-				return std::all_of(atc.visPoints.begin(), atc.visPoints.end(), [myRange, fpPos](const EuroScopePlugIn::CPosition& visPoint)
-					{
-						return visPoint.DistanceTo(fpPos) > myRange;
-					});
-			}
-		}
-		return true;
-	}
-	return false;
+	return myPos.DistanceTo(FlightPlan.GetCorrelatedRadarTarget().GetPosition().GetPosition()) > myRange;
 }
 
 void vsid::VSIDPlugin::loadEse()
@@ -1700,9 +1662,7 @@ void vsid::VSIDPlugin::loadEse()
 				vsid::EseBuffer tmpBuffer = eseParser.getBuffer();
 
 				vsid::Logger::log(LogLevel::Info,
-					std::format("ESE parsing complete. [{}] stations | [{}] SIDs",
-						tmpBuffer.sectionAtc.size(),
-						tmpBuffer.sectionSids.size()));
+					std::format("ESE parsing complete. [{}] SIDs", tmpBuffer.sectionSids.size()));
 
 				{
 					std::lock_guard<std::mutex> lock(this->bufferMtx_);
@@ -1764,69 +1724,6 @@ void vsid::VSIDPlugin::addOrSetSquawk(const std::string& callsign, bool forceTS)
 			this->squawkQueue.splice(this->squawkQueue.begin(), this->squawkQueue, it);
 		}
 	}
-}
-
-bool vsid::VSIDPlugin::atcFreqMatch(const EuroScopePlugIn::CController& other, const vsid::SectionAtc& local)
-{
-	if (other.GetPrimaryFrequency() != local.freq)
-	{
-		return false;
-	}
-
-	const std::string atcCallsign = other.GetCallsign();
-	const std::string myCallsign = local.callsign;
-	std::optional<std::string> atcIcao = std::nullopt;
-	std::optional<std::string> myIcao = std::nullopt;
-
-	try
-	{
-		atcIcao = vsid::utils::split(atcCallsign, '_').at(0);
-		messageHandler->removeGenError(ERROR_ATC_ICAOSPLIT_FREQ_OTH + "_" + atcCallsign);
-	}
-	catch (std::out_of_range)
-	{
-		if (!messageHandler->genErrorsContains(ERROR_ATC_ICAOSPLIT_FREQ_OTH + "_" + atcCallsign))
-		{
-			vsid::Logger::log(LogLevel::Error, std::format("Failed to get ICAO part of other controller callsign [{}] in Freq match check. Code: {}", atcCallsign,
-				ERROR_ATC_ICAOSPLIT_FREQ_OTH));
-
-			messageHandler->addGenError(ERROR_ATC_ICAOSPLIT_FREQ_OTH + "_" + atcCallsign);
-		}
-	}
-
-	try
-	{
-		myIcao = vsid::utils::split(myCallsign, '_').at(0);
-		messageHandler->removeGenError(ERROR_ATC_ICAOSPLIT_FREQ_MY + "_" + myCallsign);
-	}
-	catch (std::out_of_range)
-	{
-		if (!messageHandler->genErrorsContains(ERROR_ATC_ICAOSPLIT_FREQ_MY + "_" + myCallsign))
-		{
-			vsid::Logger::log(LogLevel::Error, std::format("Failed to get ICAO part of my controller callsign [{}] in Freq match check. Code: {}", myCallsign,
-				ERROR_ATC_ICAOSPLIT_FREQ_MY));
-
-			messageHandler->addGenError(ERROR_ATC_ICAOSPLIT_FREQ_MY + "_" + myCallsign);
-		}
-	}
-
-	if (atcIcao && myIcao && *atcIcao == *myIcao && other.GetFacility() == local.facility)
-	{
-		vsid::Logger::log(LogLevel::Debug, std::format("[FREQ Match] other: {}({}) IS local: {}({})", atcCallsign, other.GetPrimaryFrequency(),
-			myCallsign, local.freq), DebugLevel::Atc);
-		return true;
-	}
-	
-	if (other.GetFacility() != local.facility) // #dev - debugging purpose
-	{
-		vsid::Logger::log(LogLevel::Debug, std::format("[FREQ Match] other fac: {}({}) is NOT local fac: {}({})", atcCallsign, other.GetFacility(),
-			myCallsign, local.facility), DebugLevel::Atc, true);
-
-		return false;
-
-	}
-	
-	return false; // default fallback state
 }
 
 std::optional<vsid::Command> vsid::VSIDPlugin::parseCommand(std::string_view commandLine)
@@ -5362,32 +5259,6 @@ void vsid::VSIDPlugin::OnControllerPositionUpdate(EuroScopePlugIn::CController C
 			"SI [{}] is valid.", atcCallsign, data.si), vsid::DebugLevel::Atc);
 
 		this->atcFailCounter.erase(failit);
-		inFailCounter = false;
-	}
-
-	// maximum 3 attempts to try and match the callsign or frequency against ese stored atc stations
-	if (inFailCounter)
-	{
-		if (failit->second > 2 && failit->second < MAX_ATC_FAIL_COUNT)
-		{
-			for (const vsid::SectionAtc& sAtc : this->sectionAtc)
-			{
-				if (vsid::utils::svEqualCi(atcCallsign, sAtc.callsign) || atcFreqMatch(Controller, sAtc))
-				{
-					data.si = sAtc.si;
-					data.freq = sAtc.freq;
-					data.facility = sAtc.facility;
-
-					vsid::Logger::log(LogLevel::Debug, std::format("[{}] match found in parsed stations. Setting SI [{}] | FREQ [{}] | FAC [{}]",
-						atcCallsign, data.si, data.freq, data.facility), vsid::DebugLevel::Atc);
-
-					this->atcFailCounter.erase(failit);
-					inFailCounter = false;
-
-					break;
-				}
-			}
-		}
 	}
 
 	EuroScopePlugIn::CController atcMyself = ControllerMyself();
@@ -5983,7 +5854,6 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 
 		if (this->eseBuffer_.has_value())
 		{
-			this->sectionAtc = std::move(this->eseBuffer_->sectionAtc);
 			this->sectionSids = std::move(this->eseBuffer_->sectionSids);
 
 			vsid::Logger::log(LogLevel::Info, "Updated ESE data from async buffer");

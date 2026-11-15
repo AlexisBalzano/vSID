@@ -532,8 +532,6 @@ namespace vsid
 		bool noScreenInformed = false;
 		// pointer to plugin itself for data exchange and control of loading/unloading
 		std::shared_ptr<vsid::VSIDPlugin> shared;
-		// internal storage of parsed atc stations
-		std::set<vsid::SectionAtc> sectionAtc;
 		// internal storage of parsed sids
 		std::set<vsid::SectionSID> sectionSids;
 
@@ -603,18 +601,6 @@ namespace vsid
 		// Parameter: bool forceTS - if TopSky should be forced for squawk assignment
 		//************************************
 		void addOrSetSquawk(const std::string& callsign, bool forceTS = false);
-
-		//************************************
-		// Description: Checks for frequency match and considers ICAO and facility parts matching
-		// Method:    atcFreqMatch
-		// FullName:  vsid::VSIDPlugin::atcFreqMatch
-		// Access:    private 
-		// Returns:   bool
-		// Qualifier:
-		// Parameter: const EuroScopePlugIn::CController & other
-		// Parameter: const vsid::SectionAtc & local
-		//************************************
-		bool atcFreqMatch(const EuroScopePlugIn::CController& other, const vsid::SectionAtc& local);
 
 		std::optional<vsid::Command> parseCommand(const std::string_view commandLine);
 	};

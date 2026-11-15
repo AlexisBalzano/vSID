@@ -33,27 +33,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <mutex>
 
 #include "utils.h"
-#include "area.h" // only for point calculation
 
 namespace vsid
 {
-	struct SectionAtc
-	{
-		std::string callsign;
-		std::string si;
-		int facility;
-		double freq;
-		std::vector<EuroScopePlugIn::CPosition> visPoints;
-
-		explicit SectionAtc(std::string callsign, std::string si, int facility, double freq, std::vector<EuroScopePlugIn::CPosition> visPoints) :
-			callsign(std::move(callsign)), si(std::move(si)), facility(facility), freq(freq), visPoints(std::move(visPoints)) {}
-
-		bool operator<(const vsid::SectionAtc& other) const noexcept
-		{
-			return si < other.si;
-		}
-	};
-
 	struct SectionTransition
 	{
 		std::string base;
@@ -84,7 +66,6 @@ namespace vsid
 	};
 
 	struct EseBuffer {
-		std::set<vsid::SectionAtc> sectionAtc;
 		std::set<vsid::SectionSID> sectionSids;
 	};
 
@@ -97,7 +78,7 @@ namespace vsid
 		inline EseBuffer getBuffer() { return std::move(this->tmpBuffer_); }
 
 	private:
-		enum class Section { None, Positions, SidsStars, Unknown };
+		enum class Section { None, SidsStars, Unknown };
 
 		//************************************
 		// Description: Transform a found ese section into section type
@@ -110,7 +91,6 @@ namespace vsid
 		//************************************
 		static Section toSection(std::string_view header)
 		{
-			if (header == "[POSITIONS]") return Section::Positions;
 			if (header == "[SIDSSTARS]") return Section::SidsStars;
 			return Section::Unknown;
 		}
