@@ -3493,7 +3493,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				"lvp [icao] - toggle lvp ops for icao / "
 				"req icao - lists request list entries / "
 				"req icao reset [listname] - resets all request lists or specified list / "
-				"reload [ese] - reloads the main config or the ese file / "
+				"reload [ese] - reloads the main and airport configs or the ese file / "
 				"Debug - toggle debug mode");
 
 			return true;
@@ -4460,6 +4460,11 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				vsid::Logger::log(LogLevel::Info, "Reloading main config...");
 				this->configParser.loadMainConfig();
 				this->autoConfigurationLoadAttempted = false;
+
+				// Re-read airport configs (and the Auto configuration) from disk. Live rule,
+				// setting, area and request states are preserved like any airport update.
+				vsid::Logger::log(LogLevel::Info, "Reloading airport configs...");
+				this->UpdateActiveAirports();
 
 				return true;
 			}
