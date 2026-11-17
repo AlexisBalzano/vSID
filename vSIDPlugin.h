@@ -107,7 +107,6 @@ namespace vsid
 
 		//************************************
 		// Description: Returns the SID waypoint found in the route or empty if none was found. Checks ES determined SID first.
-		// Considers transition waypoints
 		// Method:    findSidWpt
 		// FullName:  vsid::VSIDPlugin::findSidWpt
 		// Access:    public 

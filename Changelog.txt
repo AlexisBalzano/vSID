@@ -21,6 +21,8 @@
 *	CMD - removed ".vsid area", ".vsid lvp" and ".vsid night" / ".vsid time"
 *	CONF - removed the v1 "sids" format and the SID settings "lvp", "timeFrom", "timeTo", "pilotfiled", "trans", "route", "mtow", "acftType", "engineCount", "wingType", "actDepRwy", "allowDiffNumbers", "prio"
 *	CONF - removed the airport settings "timeMode" and "timezone" and the area settings "active" and "arrAsDep"
+*	CONF - removed the main config colors "sidHighlight" and "clmbHighlight" (no SID or climb highlight in config v2)
+*	SID - SID transitions are no longer suggested or offered in the transition menu (config v2 has none). The transition tag item still shows a transition written in the ATC block
 
 [Changelog v0.15.0.1]
 :lady_beetle: **Fixes**

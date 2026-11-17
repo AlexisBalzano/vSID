@@ -9,7 +9,7 @@ The plugin is used within several vACCs by default.
 * SID strategies per airport (runway group per exit point, nearest runway) switched with a command or by another plugin through the bridge.
 * SID/RWY suggestion based on the config file and the filed flight plan.
 * Initial climb suggestion based on the SID.
-* Different colors for SID, climb, runway to indicate any deviations from default assigment and highlights.
+* Different colors for SID, climb, runway to indicate any deviations from default assigment.
 * Optimized menus für SIDs, runways, climbs, etc.
 * Request menu for different requests as clearance, startup, pushback, taxi, vfr.
 * Startup counter per runway (all "active" flights with startup approval).

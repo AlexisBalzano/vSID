@@ -128,16 +128,6 @@ void vsid::ConfigParser::loadMainConfig()
 		}
 		else this->colors["noSid"] = RGB(220, 30, 20);
 
-		if (this->vSidConfig.at("colors").contains("sidHighlight"))
-		{
-			this->colors["sidHighlight"] = RGB(
-				this->vSidConfig.at("colors").at("sidHighlight").value("r", 240),
-				this->vSidConfig.at("colors").at("sidHighlight").value("g", 90),
-				this->vSidConfig.at("colors").at("sidHighlight").value("b", 190)
-			);
-		}
-		else this->colors["sidHighlight"] = RGB(240, 90, 190);
-
 		if (this->vSidConfig.at("colors").contains("suggestedClmb"))
 		{
 			this->colors["suggestedClmb"] = RGB(
@@ -177,16 +167,6 @@ void vsid::ConfigParser::loadMainConfig()
 			);
 		}
 		else this->colors["clmbViaSet"] = RGB(0, 255, 0);
-
-		if (this->vSidConfig.at("colors").contains("clmbHighlight"))
-		{
-			this->colors["clmbHighlight"] = RGB(
-				this->vSidConfig.at("colors").at("clmbHighlight").value("r", 240),
-				this->vSidConfig.at("colors").at("clmbHighlight").value("g", 90),
-				this->vSidConfig.at("colors").at("clmbHighlight").value("b", 190)
-			);
-		}
-		else this->colors["clmbHighlight"] = RGB(240, 90, 190);
 
 		if (this->vSidConfig.at("colors").contains("rwyNotSet"))
 		{

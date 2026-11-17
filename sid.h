@@ -29,22 +29,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 namespace vsid
 {
-	struct Transition
-	{
-		std::string base = "";
-		std::string number = "";
-		std::string designator = "";
-	};
-
 	class Sid
 	{
 	public:
 
 		Sid(std::string base = "", std::string waypoint = "", std::string id = "", std::string number = "", std::string designator = "", std::vector<std::string> rwys = {},
-			std::map<std::string, vsid::Transition> transition = {}, bool allowDiffNumbers = false, int initialClimb = 0, bool climbvia = false,
-			bool sidHighlight = false, bool clmbHighlight = false) : base(base), waypoint(waypoint), id(id), number(number), designator(designator),
-			rwys(rwys), transition(transition), allowDiffNumbers(allowDiffNumbers), initialClimb(initialClimb), climbvia(climbvia),
-			sidHighlight(sidHighlight), clmbHighlight(clmbHighlight) {};
+			int initialClimb = 0, bool climbvia = false) : base(base), waypoint(waypoint), id(id), number(number), designator(designator),
+			rwys(rwys), initialClimb(initialClimb), climbvia(climbvia) {};
 
 		// selection criteria live in the v2 config (vsid::v2::Entry, matched by id); this is what the plugin shows and sets
 		std::string base;
@@ -53,12 +44,8 @@ namespace vsid
 		std::string number;
 		std::string designator;
 		std::vector<std::string> rwys;
-		std::map<std::string, vsid::Transition> transition;
-		bool allowDiffNumbers;
 		int initialClimb;
 		bool climbvia;
-		bool sidHighlight;
-		bool clmbHighlight;
 		/**
 		 * @brief Gets the SID name (base + number + designator)
 		 *
@@ -86,17 +73,15 @@ namespace vsid
 		bool empty() const;
 		
 		//************************************
-		// Description: Collapses sid / trans bases with consecutive letters for a match
+		// Description: Collapses the sid base with consecutive letters for a match
 		// Method:    collapsedBaseMatch
 		// FullName:  vsid::Sid::collapsedBaseMatch
 		// Access:    public 
 		// Returns:   bool
 		// Qualifier:
 		// Parameter: std::string_view other - the other string to compare to (usually from .ese file)
-		// Parameter: std::optional<std::string_view> trans - as multiple transitions can be held it has to be specified
-		// for the check, if nullopt the sid base is checked
 		//************************************
-		bool collapsedBaseMatch(std::string_view other, std::optional<std::string_view> trans = std::nullopt);
+		bool collapsedBaseMatch(std::string_view other);
 		/**
 		 * @brief Compares if two SIDs are the same
 		 *
