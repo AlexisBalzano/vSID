@@ -36,6 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unordered_set>
 #include <algorithm>
 #include <chrono>
+#include <charconv>
 
 namespace vsid
 {
@@ -194,4 +195,22 @@ namespace vsid
 			else return false;
 		}
 	};
+
+	//************************************
+	// Description: Initial climb of a configured SID for an engine type (J, P or T, anything else counts as J),
+	// for SIDs taken without the engine (manual or ATC set). Falls back to the SID's own value if its id is no v2 entry.
+	//************************************
+	inline int climbFor(const Airport& airport, const Sid& sid, char engine)
+	{
+		int id = -1;
+		const auto [_, ec] = std::from_chars(sid.id.data(), sid.id.data() + sid.id.size(), id);
+		if (ec != std::errc() || id < 0 || id >= static_cast<int>(airport.sidConfig.entries.size())) return sid.initialClimb;
+
+		const vsid::v2::Entry& entry = airport.sidConfig.entries[id];
+		if (entry.id != id) return sid.initialClimb;
+
+		const char key = (engine == 'J' || engine == 'P' || engine == 'T') ? engine : 'J';
+		const auto climb = entry.initialClimb.find(key);
+		return climb != entry.initialClimb.end() ? climb->second : sid.initialClimb;
+	}
 }

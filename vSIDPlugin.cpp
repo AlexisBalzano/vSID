@@ -364,6 +364,10 @@ void vsid::VSIDPlugin::processFlightplan(EuroScopePlugIn::CFlightPlan& FlightPla
 	}
 	else messageHandler->removeFplnError(callsign, ERROR_FPLN_ADEPINACTIVE);
 
+	// a manual or atc set SID did not go through processSid: give it the climb of the flight's engine type
+
+	if (!manualSid.empty()) manualSid.initialClimb = vsid::climbFor(this->activeAirports[icao], manualSid, fplnData.GetEngineType());
+
 	// restore infos after an airport update was called but only for first processing
 
 	if (!this->processed.contains(callsign) &&
@@ -1978,6 +1982,8 @@ void vsid::VSIDPlugin::OnGetTagItem(EuroScopePlugIn::CFlightPlan FlightPlan, Eur
 						if (atcSid == sid.name() && this->processed[callsign].sid != sid)
 						{
 							this->processed[callsign].customSid = sid;
+							this->processed[callsign].customSid.initialClimb =
+								vsid::climbFor(this->activeAirports[fplnData.GetOrigin()], sid, fplnData.GetEngineType());
 							break;
 						}
 					}
