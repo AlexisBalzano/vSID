@@ -88,18 +88,33 @@ class ConvertTest(unittest.TestCase):
 		self.assertEqual(ap["strategies"], {"nearest": {"label": "Nearest", "assign": {"*": "nearest"}}})
 		self.assertEqual(ap["selection"]["AMOLO"], ["other", "airbus"])
 		self.assertEqual([(e["sid"], e["rwy"]) for e in entries_of(ap, "AMOLO")],
-			[("B", "32R"), ("A", "14R"), ("B", "32L"), ("H", "14R"), ("H", "14L"), ("A", "14L")])
+			[("B", "32R"), ("B", "32L"), ("H", "14R"), ("A", "14R"), ("H", "14L"), ("A", "14L")])
 		self.assertTrue(any("prio tie" in line and "H2" in line and "H3" in line for line in report))
 		self.assertTrue(any("area-only entry" in line and "A1" in line for line in report))
 
 	def test_lfbo_area_only_entry(self):
 		ap, _ = converted("lfbo_amolo.json")
 		amolo = entries_of(ap, "AMOLO")
-		# A1 (14R) exists in v1 only inside the airbus area; B1 and H1 have a plain twin (B3, H3)
+		# A1 (14R) exists in v1 only inside the airbus area; B1 and H1 have a plain twin (B3, H3).
+		# Inside the area v1 takes H1 over A1 (same prio, read last): the area entry goes after H 14R.
 		self.assertEqual([(e["sid"], e["rwy"], e.get("area")) for e in amolo],
-			[("B", "32R", None), ("A", "14R", "airbus"), ("B", "32L", None), ("H", "14R", None), ("H", "14L", None),
+			[("B", "32R", None), ("B", "32L", None), ("H", "14R", None), ("A", "14R", "airbus"), ("H", "14L", None),
 				("A", "14L", None)])
 		check_v2_shape(self, ap)
+
+	def test_report_engine_split_anomalies(self):
+		lgl = {"initial": 5000, "A": {"rwy": "27L",
+			"1": {"prio": 6, "engineType": "J"}, "2": {"prio": 6, "engineType": "PT"},
+			"3": {"prio": 2, "engineType": "PT", "area": "north"}}}
+		nurmo = {"initial": 5000, "G": {"rwy": "09L",
+			"1": {"prio": 4, "engineType": "J"}, "2": {"prio": 4, "engineType": "PT", "climbvia": True}}}
+		north = {"active": True, "p1": {"lat": "N049.00.00.000", "lon": "E002.30.00.000"},
+			"p2": {"lat": "N049.01.00.000", "lon": "E002.30.00.000"}, "p3": {"lat": "N049.01.00.000", "lon": "E002.31.00.000"}}
+		ap = load_v1("LFPG", {"runways": "27L,09L", "sids": {"LGL": lgl, "NURMO": nurmo}, "areas": {"north": north}})
+		_, report = convert(ap)
+		text = "\n".join(report)
+		self.assertIn("area variants only for engines PT: LGL A (27L)", text)
+		self.assertIn("climbvia differs by engine type: NURMO G (09L)", text)
 
 	def test_lfpn_rule_list(self):
 		ap, _ = converted("lfpn_rules.json")

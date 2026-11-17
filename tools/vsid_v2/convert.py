@@ -59,15 +59,33 @@ class _Entry:
 	def plain(self):
 		return [v for v in self.variants if not v.area]
 
-	def sort_key(self):
+	@staticmethod
+	def _key(variants):
 		# v1 keeps the lowest prio and, at equal prio, the variant it reads last
-		base = self.plain or self.variants
-		prio = min(v.prio for v in base)
-		last = max(v.order for v in base if v.prio == prio)
+		prio = min(v.prio for v in variants)
+		last = max(v.order for v in variants if v.prio == prio)
 		return prio, -last
+
+	def sort_key(self):
+		"""Rank outside the areas (area variants only count for an area-only entry)."""
+		return self._key(self.plain or self.variants)
+
+	def area_key(self):
+		"""Rank inside an area, where the area variants and the plain ones compete."""
+		return self._key(self.variants)
 
 	def label(self):
 		return f"{self.waypoint} {self.designator} ({','.join(self.rwys)})"
+
+
+def _order(entries):
+	"""v1 choice order. An area-only entry only competes inside its area: it goes before the first
+	entry it beats there."""
+	ordered = sorted((e for e in entries if e.plain), key=_Entry.sort_key)
+	for x in sorted((e for e in entries if not e.plain), key=_Entry.area_key):
+		pos = next((i for i, y in enumerate(ordered) if y.area_key() > x.area_key()), len(ordered))
+		ordered.insert(pos, x)
+	return ordered
 
 
 def _merge_key(v):
@@ -126,7 +144,7 @@ def convert(ap):
 			by_point.setdefault(v.waypoint, []).append(index[key])
 		index[key].variants.append(v)
 	for waypoint in by_point:
-		by_point[waypoint].sort(key=_Entry.sort_key)
+		by_point[waypoint] = _order(by_point[waypoint])
 
 	for entries in by_point.values():
 		for e in entries:
@@ -152,6 +170,11 @@ def convert(ap):
 			else:
 				if set().union(*(_engines(v) for v in plain)) != e.engines:
 					note(f"engines only allowed inside an area in v1, everywhere in v2: {e.label()}")
+				inside = set().union(*(_engines(v) for v in e.variants if v.area))
+				if inside and inside != e.engines:
+					names = "".join(eng for eng in ENGINES if eng in inside)
+					note(f"area variants only for engines {names}: {e.label()}; in v1 the other engine types get no area "
+						f"variant inside the area, in v2 nearest they get this entry")
 				if len({v.prio for v in plain}) > 1:
 					note(f"prio spread inside one entry: {e.label()} {sorted({v.prio for v in plain})}")
 			if e.rules:
@@ -162,6 +185,15 @@ def convert(ap):
 				note(f"engine types other than J, P, T ignored: {e.label()}")
 
 	_report_ties(by_point, note)
+	for entries in by_point.values():
+		split = {}
+		for e in entries:
+			split.setdefault((e.designator, tuple(e.rwys), tuple(e.rules)), []).append(e)
+		for group in split.values():
+			if len({e.climbvia for e in group}) > 1:
+				via = "".join(eng for eng in ENGINES if any(eng in e.engines for e in group if e.climbvia))
+				note(f"climbvia differs by engine type: {group[0].label()} climbvia only for {via}, kept as "
+					f"{len(group)} entries")
 
 	# runway groups: only for airports with v1 areas in use
 	used_areas = [name for name in ap.areas

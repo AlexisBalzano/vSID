@@ -1,0 +1,46 @@
+{
+	"*": [
+		{
+			"match": { "engine": "[!JPT]", "expect": "-" },
+			"reason": "engine type outside J, P, T: an entry merged from J and PT variants has no engine condition in v2 and accepts every engine type (deliberate), v1 gave no SID"
+		}
+	],
+	"LFBO": [
+		{
+			"match": { "depRwys": "14R,14L", "expect": "[AH] 14R *", "got": "[AH] 14L *" },
+			"reason": "nav decision: prio tie between 14L and 14R (AMOLO, FINOT, FISTO, LACOU, MEN H2/H3; GAUDE, LMB A2/A3): v1 takes the variant read last (14R); v2 tries the group of 32R first (other: 14L, 32R) since B 32R has the best prio, so 14L"
+		},
+		{
+			"match": { "mode": "nearest", "expect": "A 14L *", "got": "A 14R *" },
+			"reason": "nav decision: area variant A1 (14R, airbus) ties at prio 1 with A2 (14L), which v1 reads last (FINOT, FISTO, LACOU, MEN, MORIL, RIBOU): in v1 the airbus area never gives 14R; v2 nearest sends aircraft inside the area to 14R"
+		},
+		{
+			"match": { "mode": "nearest", "expect": "B 32R *", "got": "B 32L *" },
+			"reason": "nav decision: area variant B1 (32L, airbus) ties at prio 1 with B2 (32R), which v1 reads last (every point): in v1 the airbus area never gives 32L; v2 nearest sends aircraft inside the area to 32L"
+		}
+	],
+	"LFPB": [
+		{
+			"match": { "waypoint": "PN", "depRwys": "07,25,09,27,03,21", "rules": { "opposing": true }, "expect": "C 25 *", "got": "M 07 *" },
+			"reason": "nav decision: prio tie PN C1 (25) / M1 (07, opposing) at prio 1, only with both directions active: v1 takes C1 (read last), v2 puts the opposing entry first"
+		}
+	],
+	"LFPG": [
+		{
+			"match": { "waypoint": "LGL", "engine": "J", "mode": "nearest", "expect": "B 26R *", "got": "A 27L *" },
+			"reason": "nav decision: LGL A3/A4 (north area variants) are typed PT instead of J/PT: in v1 a jet parked north gets no north variant and departs 26R (B, prio 4); v2 nearest tries the north group first and gives A 27L (spec 6)"
+		}
+	],
+	"LFPO": [
+		{
+			"match": { "rules": { "opposing": true }, "expect": "[AEFWXY] *", "got": "[BGHQRS] *" },
+			"reason": "nav decision: opposing variants (B, G, H, Q, R, S) tie with the normal ones (A, E, F, W, X, Y) at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		}
+	],
+	"LFRH": [
+		{
+			"match": { "waypoint": "OMNI", "expect": " *", "got": "-" },
+			"reason": "nav decision: config anomaly: OMNI > '1' > 'D' has no designator (v1 reads '1' as a number and 'D' as the variant id) and offers a SID with an empty designator; v2 requires a designator and drops it"
+		}
+	]
+}

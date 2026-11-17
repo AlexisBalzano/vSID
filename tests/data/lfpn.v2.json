@@ -1,0 +1,672 @@
+{
+	"LFPN": {
+		"version": 2,
+		"elevation": 538,
+		"runways": "07L,25R,07R,25L",
+		"transAlt": 5000,
+		"maxInitialClimb": 5000,
+		"appSI": "FF,PGA,POA",
+		"intersections": {
+			"07L": "W",
+			"07R": "W1",
+			"25L": "S1",
+			"25R": "E"
+		},
+		"customRules": {
+			"wlpg": false,
+			"wipg": false,
+			"elpg": false,
+			"eipg": false
+		},
+		"defaults": {
+			"equip": {
+				"RNAV": true
+			},
+			"initialClimb": {
+				"J": 3000,
+				"P": 3000,
+				"T": 3000
+			}
+		},
+		"procedures": {
+			"ATREX": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"NURMO": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"OPALE": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"BAXIR": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"BUBLI": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"DIKOL": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"RANUX": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"AGOPA": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"ERIXU": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"LATRA": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"OKASI": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"PILUL": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"DORDI": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"MONOT": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"OLZOM": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"ELCOB": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"LGL": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 4000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			],
+			"PACIQ": [
+				{
+					"sid": "V",
+					"rwy": "25R",
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				},
+				{
+					"sid": "P",
+					"rwy": "25R",
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "B",
+					"rwy": "07L",
+					"initialClimb": 2000,
+					"rule": [
+						"wipg",
+						"wlpg"
+					]
+				},
+				{
+					"sid": "A",
+					"rwy": "07L",
+					"initialClimb": 2000,
+					"rule": [
+						"eipg",
+						"elpg"
+					]
+				}
+			]
+		}
+	}
+}

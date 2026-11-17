@@ -191,6 +191,15 @@ if(BUILD_TESTING)
     add_executable(strategy_test tests/strategy_test.cpp)
     target_link_libraries(strategy_test PRIVATE vsid_engine)
     add_test(NAME strategy COMMAND strategy_test)
+    add_executable(configcases_test tests/configcases_test.cpp)
+    target_link_libraries(configcases_test PRIVATE vsid_engine)
+    foreach(_airport lfpg lfpo lfpn lfbo)
+        add_test(NAME configcases_${_airport}
+            COMMAND configcases_test
+                "${CMAKE_SOURCE_DIR}/tests/data/${_airport}.v2.json"
+                "${CMAKE_SOURCE_DIR}/tests/data/${_airport}.cases.json"
+                "${CMAKE_SOURCE_DIR}/tools/vsid_v2/accepted_differences.json")
+    endforeach()
     set(VSID_AUTO_CONFIG_TEST_FILE "" CACHE FILEPATH "Optional separately maintained Auto configuration to validate")
     if(VSID_AUTO_CONFIG_TEST_FILE)
         add_test(NAME autoconfiguration_external COMMAND autoconfiguration_test "${VSID_AUTO_CONFIG_TEST_FILE}")
