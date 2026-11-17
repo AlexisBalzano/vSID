@@ -15,3 +15,4 @@ run_test autoconfiguration_test tests/autoconfiguration_test.cpp autoconfigurati
 run_test bridgeconfiguration_test tests/bridgeconfiguration_test.cpp autoconfiguration.cpp
 run_test sidconfigv2_test tests/sidconfigv2_test.cpp sidconfigv2.cpp
 run_test sidengine_test tests/sidengine_test.cpp sidengine.cpp sidconfigv2.cpp
+run_test strategy_test tests/strategy_test.cpp strategy.cpp sidconfigv2.cpp

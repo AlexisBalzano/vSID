@@ -136,7 +136,7 @@ set(SOURCES
 )
 
 # pure engine (no EuroScope, no logger); completed by later tasks
-add_library(vsid_engine STATIC sidconfigv2.cpp sidengine.cpp)
+add_library(vsid_engine STATIC sidconfigv2.cpp sidengine.cpp strategy.cpp)
 
 # DLL target
 add_library(vSID SHARED ${SOURCES})
@@ -188,6 +188,9 @@ if(BUILD_TESTING)
     add_executable(sidengine_test tests/sidengine_test.cpp)
     target_link_libraries(sidengine_test PRIVATE vsid_engine)
     add_test(NAME sidengine COMMAND sidengine_test)
+    add_executable(strategy_test tests/strategy_test.cpp)
+    target_link_libraries(strategy_test PRIVATE vsid_engine)
+    add_test(NAME strategy COMMAND strategy_test)
     set(VSID_AUTO_CONFIG_TEST_FILE "" CACHE FILEPATH "Optional separately maintained Auto configuration to validate")
     if(VSID_AUTO_CONFIG_TEST_FILE)
         add_test(NAME autoconfiguration_external COMMAND autoconfiguration_test "${VSID_AUTO_CONFIG_TEST_FILE}")
