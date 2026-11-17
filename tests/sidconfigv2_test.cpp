@@ -199,6 +199,22 @@ void testRejectsBadEntry()
 	check(contains(parseError(json), "unknown runway"), "runway not in runways");
 }
 
+void testRejectsBadRunwayGroups()
+{
+	auto json = vsid::v2::fixtures::lfpg();
+	json["runwayGroups"]["south"].push_back("27L");
+	const std::string twice = parseError(json);
+	check(contains(twice, "group") && contains(twice, "27L"), "runway in two groups");
+
+	json = vsid::v2::fixtures::lfpg();
+	json["runwayGroups"]["north"].push_back("09C");
+	const std::string unknown = parseError(json);
+	check(contains(unknown, "unknown runway") && contains(unknown, "09C"), "group runway not in runways");
+
+	json.erase("runways");
+	check(parseError(json).empty(), "without runways a group runway is not checked");
+}
+
 void testRejectsBadArea()
 {
 	auto json = vsid::v2::fixtures::lfpg();
@@ -271,6 +287,7 @@ int main()
 	testRejectsUnknownWaypoint();
 	testRejectsUnknownRule();
 	testRejectsBadEntry();
+	testRejectsBadRunwayGroups();
 	testRejectsBadArea();
 	testRejectsStrategyId();
 	testEntryArea();

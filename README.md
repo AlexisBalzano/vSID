@@ -93,6 +93,9 @@ the SID choice stay as before (`elevation`, `runways`, `transAlt`, `maxInitialCl
 }
 ```
 
+**Runway groups.** `runwayGroups` maps a group name to its runways. A runway belongs
+to one group at most and, when `runways` is set, must be listed there.
+
 **Procedures.** For each exit point, an ordered list of entries. The full SID name
 (point, number, designator) comes from the sector file, as before. Entry fields:
 

@@ -206,13 +206,18 @@ namespace
 		if (auto it = airport.find("runwayGroups"); it != airport.end())
 		{
 			if (!it->is_object()) fail("runwayGroups must be an object");
+			std::map<std::string, std::string> owner; // runway -> group
 			for (const auto& [name, list] : it->items())
 			{
 				if (!list.is_array()) fail("runwayGroups." + name + " must be a list");
 				for (const auto& r : list)
 				{
 					if (!r.is_string()) fail("runwayGroups." + name + " must hold strings");
-					config.runwayGroups[name].push_back(r.get<std::string>());
+					const std::string rwy = r.get<std::string>();
+					if (!runways.empty() && !runways.contains(rwy)) fail("runwayGroups." + name + ": unknown runway " + rwy + " (not in runways)");
+					if (auto [o, added] = owner.emplace(rwy, name); !added)
+						fail("runwayGroups." + name + ": runway " + rwy + " already in group '" + o->second + "' (a runway belongs to one group)");
+					config.runwayGroups[name].push_back(rwy);
 				}
 			}
 		}
