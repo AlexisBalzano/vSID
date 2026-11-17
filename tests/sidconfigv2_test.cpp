@@ -214,6 +214,9 @@ void testRejectsStrategyId()
 	json["strategies"]["nominal"] = json["strategies"]["roulage-mini"];
 	check(contains(parseError(json), "strategy id"), "nominal reserved");
 	json = vsid::v2::fixtures::lfpg();
+	json["strategies"]["Resume"] = json["strategies"]["roulage-mini"];
+	check(contains(parseError(json), "strategy id"), "resume reserved");
+	json = vsid::v2::fixtures::lfpg();
 	json["defaultStrategy"] = "nope";
 	check(contains(parseError(json), "defaultStrategy"), "unknown default strategy");
 	json = vsid::v2::fixtures::lfpg();

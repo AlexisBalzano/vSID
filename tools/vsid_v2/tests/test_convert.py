@@ -48,7 +48,7 @@ def check_v2_shape(test, ap):
 		test.assertGreaterEqual(len(area["points"]), 3)
 	for sid, strategy in ap.get("strategies", {}).items():
 		test.assertNotIn(" ", sid)
-		test.assertNotEqual(sid.lower(), "nominal")
+		test.assertNotIn(sid.lower(), ("nominal", "resume"))
 		for key, mode in strategy["assign"].items():
 			test.assertTrue(key == "*" or key in ap["procedures"])
 			test.assertTrue(mode in ("nearest", "default") or mode in groups)

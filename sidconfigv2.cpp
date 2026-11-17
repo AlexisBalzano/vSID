@@ -291,8 +291,9 @@ namespace
 			if (!it->is_object()) fail("strategies must be an object");
 			for (const auto& [id, body] : it->items())
 			{
-				if (id.empty() || id.find_first_of(" \t") != std::string::npos || lower(id) == "nominal")
-					fail("strategy id '" + id + "' must have no space and not be 'nominal'");
+				// "nominal" and "resume" are words of .vsid strategy, a strategy so named could not be activated
+				if (id.empty() || id.find_first_of(" \t") != std::string::npos || lower(id) == "nominal" || lower(id) == "resume")
+					fail("strategy id '" + id + "' must have no space and not be 'nominal' or 'resume'");
 				vsid::v2::Strategy strategy;
 				strategy.id = id;
 				strategy.label = stringField(body, "label", "strategy " + id, false);
