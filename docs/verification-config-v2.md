@@ -14,11 +14,23 @@ queried and `[ICAO] Strategy <label> applied.` after a change.
 
 ## 1. Build
 
+MSVC:
+
 ```text
 cmake -S . -B build -A Win32 -DBUILD_TESTING=ON
 cmake --build build --config Release
 ctest --test-dir build -C Release
 ```
+
+CI configuration (`.github/workflows/build.yml` builds with clang-cl, not MSVC):
+
+```text
+cmake -S . -B build -A Win32 -DCMAKE_CXX_COMPILER=clang-cl -DBUILD_TESTING=ON
+cmake --build build --config Release
+ctest --test-dir build -C Release
+```
+
+Run both if possible: the release DLL comes from the clang-cl build.
 
 - [ ] Configure succeeds.
 - [ ] Release build succeeds and produces `vSID.dll`.
