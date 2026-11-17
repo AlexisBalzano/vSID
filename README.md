@@ -137,8 +137,8 @@ or `default`. An area has no on/off state; it only matters in mode `nearest`.
 
 A runway set by ATC wins over the mode: only its group can give a SID.
 
-**Strategies.** `strategies` maps an id (no space, case-insensitive; `nominal` and
-`resume` are reserved) to a `label` and an `assign` object from exit point (or `*`
+**Strategies.** `strategies` maps an id (no space, case-insensitive, so two ids may not
+differ only by case; `nominal` and `resume` are reserved) to a `label` and an `assign` object from exit point (or `*`
 for every other point) to mode. The nominal strategy puts every point in `default`.
 `defaultStrategy` is the strategy active when the airport is first activated in the
 session; absent, the airport starts in `nominal`. The mode of a point

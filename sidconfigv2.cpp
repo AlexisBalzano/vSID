@@ -300,6 +300,8 @@ namespace
 				if (id.empty() || id.find_first_of(" \t") != std::string::npos || lower(id) == "nominal" || lower(id) == "resume")
 					fail("strategy id '" + id + "' must have no space and not be 'nominal' or 'resume'");
 				vsid::v2::Strategy strategy;
+				for (const auto& other : config.strategies)
+					if (lower(other.id) == lower(id)) fail("strategy id '" + id + "' differs from '" + other.id + "' only by case (ids are case-insensitive)");
 				strategy.id = id;
 				strategy.label = stringField(body, "label", "strategy " + id, false);
 				auto assign = body.find("assign");
