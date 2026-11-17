@@ -140,9 +140,15 @@ def convert(ap):
 					if len({v.initial for v in covering}) > 1:
 						note(f"initial climb conflict for {eng}: {e.label()}, kept {covering[0].initial}")
 			plain = e.plain
+			e.areas = []
 			if not plain:
+				# v1 has this entry only as area variants: v2 keeps the condition (mode nearest, inside the area)
+				for v in e.variants:
+					for a in split_csv(v.area):
+						if a in area_names and area_names[a] not in e.areas:
+							e.areas.append(area_names[a])
 				note(f"area-only entry: {e.waypoint} {'/'.join(v.name for v in e.variants)} ({','.join(e.rwys)}) "
-					f"only applies inside area {e.variants[0].area} in v1, is eligible everywhere in its group in v2")
+					f"only applies inside area {','.join(e.areas)}, kept as an area entry in v2")
 			else:
 				if set().union(*(_engines(v) for v in plain)) != e.engines:
 					note(f"engines only allowed inside an area in v1, everywhere in v2: {e.label()}")
@@ -292,6 +298,8 @@ def _emit(e, eff_equip, eff_climb):
 		out["actArrRwy"] = e.act_arr
 	if e.rules:
 		out["rule"] = e.rules[0] if len(e.rules) == 1 else e.rules
+	if e.areas:
+		out["area"] = e.areas[0] if len(e.areas) == 1 else e.areas
 	return out
 
 

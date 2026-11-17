@@ -113,8 +113,28 @@ namespace
 		}
 	}
 
+	// a string or a list of strings, each one checked by known()
+	template <typename Known>
+	std::vector<std::string> readNames(const Json& value, const std::string& where, const char* key, Known known, const char* what)
+	{
+		std::vector<std::string> names;
+		if (value.is_string()) names.push_back(value.get<std::string>());
+		else if (value.is_array())
+		{
+			for (const auto& item : value)
+			{
+				if (!item.is_string()) fail(where + ": " + key + " list must hold strings");
+				names.push_back(item.get<std::string>());
+			}
+		}
+		else fail(where + ": " + key + " must be a string or a list of strings");
+		for (const auto& name : names)
+			if (!known(name)) fail(where + ": unknown " + key + " '" + name + "' (not in " + what + ")");
+		return names;
+	}
+
 	Entry readEntry(const Json& json, const std::string& waypoint, const Defaults& defaults, const std::set<std::string>& runways,
-		const std::map<std::string, bool>& customRules)
+		const std::map<std::string, bool>& customRules, const std::vector<vsid::v2::Area>& areas)
 	{
 		const std::string where = "procedures." + waypoint;
 		if (!json.is_object()) fail(where + ": entry must be an object");
@@ -149,21 +169,14 @@ namespace
 		if (auto it = json.find("dest"); it != json.end()) entry.dest = readBoolMap(*it, where + "/" + entry.designator + ".dest");
 		if (auto it = json.find("actArrRwy"); it != json.end()) readCondition(*it, where + "/" + entry.designator + ".actArrRwy", entry.actArrRwy);
 
+		const std::string entryWhere = where + "/" + entry.designator;
 		if (auto it = json.find("rule"); it != json.end())
-		{
-			if (it->is_string()) entry.rules.push_back(it->get<std::string>());
-			else if (it->is_array())
-			{
-				for (const auto& r : *it)
+			entry.rules = readNames(*it, entryWhere, "rule", [&](const std::string& r) { return customRules.contains(r); }, "customRules");
+		if (auto it = json.find("area"); it != json.end())
+			entry.areas = readNames(*it, entryWhere, "area", [&](const std::string& a)
 				{
-					if (!r.is_string()) fail(where + "/" + entry.designator + ": rule list must hold strings");
-					entry.rules.push_back(r.get<std::string>());
-				}
-			}
-			else fail(where + "/" + entry.designator + ": rule must be a string or a list of strings");
-			for (const auto& r : entry.rules)
-				if (!customRules.contains(r)) fail(where + "/" + entry.designator + ": unknown rule '" + r + "' (not in customRules)");
-		}
+					return std::any_of(areas.begin(), areas.end(), [&](const vsid::v2::Area& area) { return area.name == a; });
+				}, "areas");
 		return entry;
 	}
 
@@ -208,48 +221,6 @@ namespace
 		for (char c : { 'J', 'P', 'T' }) airportDefaults.climb[c] = airport.value("maxInitialClimb", 0);
 		if (auto it = airport.find("defaults"); it != airport.end()) overlayDefaults(airportDefaults, *it, "defaults");
 
-		std::set<std::string> waypoints;
-		if (auto it = airport.find("procedures"); it != airport.end())
-		{
-			if (!it->is_object()) fail("procedures must be an object");
-			for (const auto& [waypoint, body] : it->items())
-			{
-				waypoints.insert(waypoint);
-				Defaults local = airportDefaults;
-				const Json* list = &body;
-				if (body.is_object()) // { "defaults": {...}, "entries": [...] }
-				{
-					if (auto d = body.find("defaults"); d != body.end()) overlayDefaults(local, *d, "procedures." + waypoint + ".defaults");
-					auto e = body.find("entries");
-					if (e == body.end()) fail("procedures." + waypoint + ": missing 'entries'");
-					list = &*e;
-				}
-				if (!list->is_array()) fail("procedures." + waypoint + " must be a list of entries");
-				for (const auto& item : *list)
-				{
-					Entry entry = readEntry(item, waypoint, local, runways, config.customRules);
-					entry.id = static_cast<int>(config.entries.size());
-					config.entries.push_back(std::move(entry));
-				}
-			}
-		}
-
-		if (auto it = airport.find("selection"); it != airport.end())
-		{
-			if (!it->is_object()) fail("selection must be an object");
-			for (const auto& [waypoint, list] : it->items())
-			{
-				if (!waypoints.contains(waypoint)) fail("selection: unknown waypoint '" + waypoint + "'");
-				if (!list.is_array()) fail("selection." + waypoint + " must be a list of groups");
-				for (const auto& g : list)
-				{
-					if (!g.is_string()) fail("selection." + waypoint + " must hold group names");
-					requireGroup(config, g.get<std::string>(), "selection." + waypoint);
-					config.selection[waypoint].push_back(g.get<std::string>());
-				}
-			}
-		}
-
 		if (auto it = airport.find("areas"); it != airport.end())
 		{
 			if (!it->is_object()) fail("areas must be an object");
@@ -270,6 +241,48 @@ namespace
 					area.points.push_back({ *lat, *lon });
 				}
 				config.areas.push_back(std::move(area));
+			}
+		}
+
+		std::set<std::string> waypoints;
+		if (auto it = airport.find("procedures"); it != airport.end())
+		{
+			if (!it->is_object()) fail("procedures must be an object");
+			for (const auto& [waypoint, body] : it->items())
+			{
+				waypoints.insert(waypoint);
+				Defaults local = airportDefaults;
+				const Json* list = &body;
+				if (body.is_object()) // { "defaults": {...}, "entries": [...] }
+				{
+					if (auto d = body.find("defaults"); d != body.end()) overlayDefaults(local, *d, "procedures." + waypoint + ".defaults");
+					auto e = body.find("entries");
+					if (e == body.end()) fail("procedures." + waypoint + ": missing 'entries'");
+					list = &*e;
+				}
+				if (!list->is_array()) fail("procedures." + waypoint + " must be a list of entries");
+				for (const auto& item : *list)
+				{
+					Entry entry = readEntry(item, waypoint, local, runways, config.customRules, config.areas);
+					entry.id = static_cast<int>(config.entries.size());
+					config.entries.push_back(std::move(entry));
+				}
+			}
+		}
+
+		if (auto it = airport.find("selection"); it != airport.end())
+		{
+			if (!it->is_object()) fail("selection must be an object");
+			for (const auto& [waypoint, list] : it->items())
+			{
+				if (!waypoints.contains(waypoint)) fail("selection: unknown waypoint '" + waypoint + "'");
+				if (!list.is_array()) fail("selection." + waypoint + " must be a list of groups");
+				for (const auto& g : list)
+				{
+					if (!g.is_string()) fail("selection." + waypoint + " must hold group names");
+					requireGroup(config, g.get<std::string>(), "selection." + waypoint);
+					config.selection[waypoint].push_back(g.get<std::string>());
+				}
 			}
 		}
 

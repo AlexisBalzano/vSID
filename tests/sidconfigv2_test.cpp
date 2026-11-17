@@ -221,6 +221,25 @@ void testRejectsStrategyId()
 	check(contains(parseError(json), "mode"), "invalid mode");
 }
 
+void testEntryArea()
+{
+	auto json = vsid::v2::fixtures::lfpg();
+	json["procedures"]["DIKOL"][0]["area"] = "north";
+	json["procedures"]["DIKOL"][2]["area"] = Json::array({ "south", "t2-mid" });
+	const auto config = parseOk(json);
+	const auto dikol = entriesOf(config, "DIKOL");
+	check(dikol[0]->areas == std::vector<std::string>{"north"}, "area string");
+	check((dikol[2]->areas == std::vector<std::string>{"south", "t2-mid"}), "area list keeps order");
+	check(dikol[1]->areas.empty(), "no area = no condition");
+
+	json["procedures"]["DIKOL"][0]["area"] = "nope";
+	check(contains(parseError(json), "area"), "unknown area refused");
+	json["procedures"]["DIKOL"][0]["area"] = 3;
+	check(contains(parseError(json), "area"), "area must be a string or a list");
+	json["procedures"]["DIKOL"][0]["area"] = Json::array({ "north", 1 });
+	check(contains(parseError(json), "area"), "area list must hold strings");
+}
+
 void testGroupOf()
 {
 	const auto config = parseOk(vsid::v2::fixtures::lfpg());
@@ -246,6 +265,7 @@ int main()
 	testRejectsBadEntry();
 	testRejectsBadArea();
 	testRejectsStrategyId();
+	testEntryArea();
 	testGroupOf();
 	std::cout << "Config v2 parser tests passed\n";
 	return 0;

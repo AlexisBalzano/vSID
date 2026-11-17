@@ -37,6 +37,9 @@ def check_v2_shape(test, ap):
 			for r in [rule] if isinstance(rule, str) else rule:
 				test.assertIn(r, rules)
 			test.assertTrue(set(e.get("engines", "")) <= set("JPT"))
+			area = e.get("area", [])
+			for a in [area] if isinstance(area, str) else area:
+				test.assertIn(a, ap.get("areas", {}))
 	for waypoint, order in ap.get("selection", {}).items():
 		test.assertIn(waypoint, ap["procedures"])
 		test.assertTrue(set(order) <= groups)
@@ -88,6 +91,15 @@ class ConvertTest(unittest.TestCase):
 			[("B", "32R"), ("A", "14R"), ("B", "32L"), ("H", "14R"), ("H", "14L"), ("A", "14L")])
 		self.assertTrue(any("prio tie" in line and "H2" in line and "H3" in line for line in report))
 		self.assertTrue(any("area-only entry" in line and "A1" in line for line in report))
+
+	def test_lfbo_area_only_entry(self):
+		ap, _ = converted("lfbo_amolo.json")
+		amolo = entries_of(ap, "AMOLO")
+		# A1 (14R) exists in v1 only inside the airbus area; B1 and H1 have a plain twin (B3, H3)
+		self.assertEqual([(e["sid"], e["rwy"], e.get("area")) for e in amolo],
+			[("B", "32R", None), ("A", "14R", "airbus"), ("B", "32L", None), ("H", "14R", None), ("H", "14L", None),
+				("A", "14L", None)])
+		check_v2_shape(self, ap)
 
 	def test_lfpn_rule_list(self):
 		ap, _ = converted("lfpn_rules.json")

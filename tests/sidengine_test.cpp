@@ -287,6 +287,52 @@ void testRwyPicksFirstOfEntryInDepRwys()
 	check(select(cfg, req).rwy == "27R", "27R when only 27R is active");
 }
 
+// DIKOL A only from inside the south area: { "sid": "A", "rwy": "26R", "area": "south" } before B 26R
+AirportConfig withAreaEntry()
+{
+	auto json = fixtures::lfpg();
+	json["procedures"]["DIKOL"] = Json::parse(R"([
+		{ "sid": "A", "rwy": "27L,27R" },
+		{ "sid": "Z", "rwy": "26R,26L", "area": "south" },
+		{ "sid": "B", "rwy": "26R,26L", "climbvia": true }
+	])");
+	return parseOk(json);
+}
+
+void testAreaEntryInAreaNearest()
+{
+	const auto cfg = withAreaEntry();
+	auto req = request(cfg, "DIKOL");
+	req.mode = "nearest";
+	req.position = inSouth;
+	const auto r = select(cfg, req);
+	check(sidOf(cfg, r) == "Z" && r.rwy == "26R", "in area + nearest -> area entry eligible");
+}
+
+void testAreaEntryNeedsNearest()
+{
+	const auto cfg = withAreaEntry();
+	auto req = request(cfg, "DIKOL");
+	req.mode = "south";
+	req.position = inSouth;
+	check(sidOf(cfg, select(cfg, req)) == "B", "in area + south mode -> area entry not eligible");
+	req.mode = "default";
+	req.depRwys = { "26R" };
+	check(sidOf(cfg, select(cfg, req)) == "B", "in area + default mode -> area entry not eligible");
+}
+
+void testAreaEntryOutsideArea()
+{
+	const auto cfg = withAreaEntry();
+	auto req = request(cfg, "DIKOL");
+	req.mode = "nearest";
+	req.depRwys = { "26R" };
+	req.position = GeoPoint{ 49.016, 2.54 }; // north area
+	check(sidOf(cfg, select(cfg, req)) == "B", "nearest outside the area -> not eligible");
+	req.position.reset();
+	check(sidOf(cfg, select(cfg, req)) == "B", "nearest without position -> not eligible");
+}
+
 int main()
 {
 	testNominalNorth();
@@ -310,6 +356,9 @@ int main()
 	testNoGroupsDeclarationOrder();
 	testRuleListAnyActive();
 	testRwyPicksFirstOfEntryInDepRwys();
+	testAreaEntryInAreaNearest();
+	testAreaEntryNeedsNearest();
+	testAreaEntryOutsideArea();
 	std::cout << "SID engine tests passed\n";
 	return 0;
 }

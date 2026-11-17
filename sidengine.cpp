@@ -88,6 +88,17 @@ namespace vsid::v2
 				});
 		}
 
+		// an entry with areas is only eligible in mode "nearest", from inside one of them
+		bool areaOk(const Entry& e, const AirportConfig& cfg, const Request& req)
+		{
+			if (e.areas.empty()) return true;
+			if (req.mode != "nearest" || !req.position) return false;
+			return std::any_of(cfg.areas.begin(), cfg.areas.end(), [&](const Area& area)
+				{
+					return std::find(e.areas.begin(), e.areas.end(), area.name) != e.areas.end() && insidePolygon(area.points, *req.position);
+				});
+		}
+
 		// the runway the entry would depart from, "" if none is usable
 		std::string usableRwy(const Entry& e, const Request& req)
 		{
@@ -173,7 +184,7 @@ namespace vsid::v2
 			if (rwy.empty()) continue;
 			if (!e.engines.empty() && e.engines.find(req.engine) == std::string::npos) continue;
 			if (!e.wtc.empty() && (req.wtc.empty() || e.wtc.find(req.wtc) == std::string::npos)) continue;
-			if (!destOk(e, req) || !actArrRwyOk(e.actArrRwy, req) || !ruleOk(e, req)) continue;
+			if (!destOk(e, req) || !actArrRwyOk(e.actArrRwy, req) || !ruleOk(e, req) || !areaOk(e, cfg, req)) continue;
 
 			const std::string group = cfg.runwayGroups.empty() ? "" : cfg.groupOf(rwy);
 			if (!equipOk(e, req)) { equipRejectedIn[group] = true; continue; }

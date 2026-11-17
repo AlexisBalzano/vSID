@@ -25,6 +25,7 @@ namespace vsid::v2
 		std::map<std::string, bool> dest;
 		RwyCondition actArrRwy;
 		std::vector<std::string> rules;      // empty = no rule; else "at least one active"
+		std::vector<std::string> areas;      // empty = no condition; else mode "nearest" and inside one of them
 	};
 	struct Area { std::string name; std::string group; std::vector<GeoPoint> points; }; // group = group name or "default"
 	struct Strategy { std::string id; std::string label; std::vector<std::pair<std::string, std::string>> assign; }; // key = waypoint or "*"
