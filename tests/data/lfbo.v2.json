@@ -1,0 +1,359 @@
+{
+	"LFBO": {
+		"version": 2,
+		"elevation": 499,
+		"runways": "14R,14L,32R,32L",
+		"transAlt": 5000,
+		"maxInitialClimb": 14000,
+		"appSI": "BB,BO,AE",
+		"intersections": {
+			"32R": "N1,N2,N4,M2",
+			"32L": "S2,S3,S4,M2",
+			"14L": "N8,N6,M8",
+			"14R": "M11,S11,M10,S10,M8,S8"
+		},
+		"runwayGroups": {
+			"airbus": [
+				"14R",
+				"32L"
+			],
+			"other": [
+				"14L",
+				"32R"
+			]
+		},
+		"defaults": {
+			"equip": {
+				"RNAV": true
+			},
+			"initialClimb": {
+				"J": 7000,
+				"P": 7000,
+				"T": 7000
+			}
+		},
+		"areas": {
+			"airbus": {
+				"group": "airbus",
+				"points": [
+					{
+						"lat": "N043.38.17.526",
+						"lon": "E001.21.01.779"
+					},
+					{
+						"lat": "N043.36.55.097",
+						"lon": "E001.22.26.894"
+					},
+					{
+						"lat": "N043.36.27.734",
+						"lon": "E001.21.31.272"
+					},
+					{
+						"lat": "N043.37.57.460",
+						"lon": "E001.20.03.635"
+					}
+				]
+			}
+		},
+		"procedures": {
+			"AMOLO": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14R",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT",
+					"area": "airbus"
+				},
+				{
+					"sid": "H",
+					"rwy": "14L",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				}
+			],
+			"MEN": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14R",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14L",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			],
+			"FINOT": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14R",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14L",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			],
+			"MORIL": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			],
+			"RIBOU": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			],
+			"GAUDE": [
+				{
+					"sid": "B",
+					"rwy": "32R"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L"
+				}
+			],
+			"LMB": [
+				{
+					"sid": "B",
+					"rwy": "32R"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L"
+				}
+			],
+			"LACOU": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14R",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14L",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			],
+			"FISTO": [
+				{
+					"sid": "B",
+					"rwy": "32R",
+					"engines": "JT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14L",
+					"engines": "JT"
+				},
+				{
+					"sid": "B",
+					"rwy": "32L",
+					"engines": "JT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14R",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "H",
+					"rwy": "14L",
+					"climbvia": true,
+					"engines": "PT"
+				},
+				{
+					"sid": "A",
+					"rwy": "14R",
+					"engines": "JT"
+				}
+			]
+		},
+		"selection": {
+			"AMOLO": [
+				"other",
+				"airbus"
+			],
+			"MEN": [
+				"other",
+				"airbus"
+			],
+			"FINOT": [
+				"other",
+				"airbus"
+			],
+			"MORIL": [
+				"other",
+				"airbus"
+			],
+			"RIBOU": [
+				"other",
+				"airbus"
+			],
+			"GAUDE": [
+				"other",
+				"airbus"
+			],
+			"LMB": [
+				"other",
+				"airbus"
+			],
+			"LACOU": [
+				"other",
+				"airbus"
+			],
+			"FISTO": [
+				"other",
+				"airbus"
+			]
+		},
+		"defaultStrategy": "nearest",
+		"strategies": {
+			"nearest": {
+				"label": "Nearest",
+				"assign": {
+					"*": "nearest"
+				}
+			}
+		}
+	}
+}

@@ -22,9 +22,11 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "area.h"
+#include "include/es/EuroScopePlugIn.h"
 #include "sid.h"
 #include "utils.h"
+#include "sidconfigv2.h"
+#include "strategy.h"
 
 #include <string>
 #include <vector>
@@ -34,6 +36,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include <unordered_set>
 #include <algorithm>
 #include <chrono>
+#include <charconv>
 
 namespace vsid
 {
@@ -65,13 +68,6 @@ namespace vsid
 		using CustomRulesMap = std::map<std::string, bool, vsid::utils::CICompare>;
 
 		//************************************
-		// Description: Area map with case insensitive compare
-		// first: std::string - area name
-		// second: vsid::Area
-		//************************************
-		using CustomAreaMap = std::map<std::string, vsid::Area, vsid::utils::CICompare>;
-
-		//************************************
 		// Description: Set containing pair of callsign and request time
 		// std::pair first: std::string - callsign
 		// std::pair second: long long - request time
@@ -100,18 +96,19 @@ namespace vsid
 		std::set<std::string> depRwys = {};
 		std::set<std::string> arrRwys = {};
 		CustomRulesMap customRules = {};
-		CustomAreaMap areas = {};
 		//************************************
 		// Description: Stores rwy intersections for intsec menu
 		// Param 1: std::string - rwy
 		// Param 2 (vec): std::string - available intsec for the rwy
 		//************************************
 		std::map<std::string, std::vector<std::string>> intsec = {};
+		//************************************
+		// Description: one vsid::Sid per v2 procedure entry (id = entry id), completed by the sector file
+		//************************************
 		std::vector<vsid::Sid> sids = {};
-		std::vector<vsid::Sid> timeSids = {};
-		std::string timezone = "";
+		vsid::v2::AirportConfig sidConfig = {};
+		vsid::v2::StrategyBook strategy = {};
 		std::map<std::string, int> appSI = {};
-		//bool arrAsDep = false;
 		int transAlt = 0;
 		int maxInitialClimb = 0;
 		bool autoHandoff = true;
@@ -187,13 +184,28 @@ namespace vsid
 		// Returns:   bool
 		// Qualifier: const
 		// Parameter: const std::string & rwy - the runway to check
-		// Parameter: bool arrAsDep - if arr runways should count as dep rwy
 		//************************************
-		inline bool isDepRwy(const std::string& rwy, bool arrAsDep = false) const
+		inline bool isDepRwy(const std::string& rwy) const
 		{
-			if (depRwys.contains(rwy)) return true;
-			else if (arrAsDep == true && arrRwys.contains(rwy)) return true;
-			else return false;
+			return depRwys.contains(rwy);
 		}
 	};
+
+	//************************************
+	// Description: Initial climb of a configured SID for an engine type (J, P or T, anything else counts as J),
+	// for SIDs taken without the engine (manual or ATC set). Falls back to the SID's own value if its id is no v2 entry.
+	//************************************
+	inline int climbFor(const Airport& airport, const Sid& sid, char engine)
+	{
+		int id = -1;
+		const auto [_, ec] = std::from_chars(sid.id.data(), sid.id.data() + sid.id.size(), id);
+		if (ec != std::errc() || id < 0 || id >= static_cast<int>(airport.sidConfig.entries.size())) return sid.initialClimb;
+
+		const vsid::v2::Entry& entry = airport.sidConfig.entries[id];
+		if (entry.id != id) return sid.initialClimb;
+
+		const char key = (engine == 'J' || engine == 'P' || engine == 'T') ? engine : 'J';
+		const auto climb = entry.initialClimb.find(key);
+		return climb != entry.initialClimb.end() ? climb->second : sid.initialClimb;
+	}
 }

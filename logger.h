@@ -34,7 +34,6 @@ namespace vsid
 		Req,
 		Conf,
 		Rwy,
-		Area,
 		Ese,
 		Gen,
 		Func,
@@ -42,6 +41,9 @@ namespace vsid
 		Cmd,
 		None
 	};
+
+	// one slot per DebugLevel, None included (tables are indexed by the enum value)
+	inline constexpr std::size_t debugLevelCount = static_cast<std::size_t>(DebugLevel::None) + 1;
 
 	struct LogMessage {
 		LogLevel level;
@@ -181,10 +183,10 @@ namespace vsid
 		// Method:    getDebugLevel
 		// FullName:  vsid::Logger::getDebugLevel
 		// Access:    public static 
-		// Returns:   std::array<bool, 16>
+		// Returns:   std::array<bool, debugLevelCount>
 		// Qualifier:
 		//************************************
-		inline static std::array<bool, 16> getDebugLevel() { return currentDebugLvl; }
+		inline static std::array<bool, debugLevelCount> getDebugLevel() { return currentDebugLvl; }
 
 		//************************************
 		// Description: Sets up all active debug levels in one string for logging
@@ -250,7 +252,6 @@ namespace vsid
 			case DebugLevel::Req: return "REQ";
 			case DebugLevel::Conf: return "CONF";
 			case DebugLevel::Rwy: return "RWY";
-			case DebugLevel::Area: return "AREA";
 			case DebugLevel::Ese: return "ESE";
 			case DebugLevel::Gen: return "GEN";
 			case DebugLevel::Func: return "FUNC";
@@ -280,7 +281,6 @@ namespace vsid
 			if (vsid::utils::svEqualCi(lvl, "req")) return DebugLevel::Req;
 			if (vsid::utils::svEqualCi(lvl, "conf")) return DebugLevel::Conf;
 			if (vsid::utils::svEqualCi(lvl, "rwy")) return DebugLevel::Rwy;
-			if (vsid::utils::svEqualCi(lvl, "area")) return DebugLevel::Area;
 			if (vsid::utils::svEqualCi(lvl, "ese")) return DebugLevel::Ese;
 			if (vsid::utils::svEqualCi(lvl, "gen")) return DebugLevel::Gen;
 			if (vsid::utils::svEqualCi(lvl, "func")) return DebugLevel::Func;
@@ -319,7 +319,7 @@ namespace vsid
 		static void rotateLogs();
 
 		inline static bool logDevOnly;
-		inline static std::array<bool, 16> currentDebugLvl;
+		inline static std::array<bool, debugLevelCount> currentDebugLvl;
 		inline static std::queue<LogMessage> bgQueue;
 		inline static std::queue<std::string> esQueue;
 		inline static HANDLE fileLockMutex{ NULL };

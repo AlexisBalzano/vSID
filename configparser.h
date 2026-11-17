@@ -49,39 +49,6 @@ namespace vsid
 		int showBelowZoom = 600;
 	};
 
-	struct tmpSidSettings
-	{
-		std::string base = "";
-		std::string wpt;
-		std::string id = "";
-		std::string desig = "";
-		std::map<std::string, vsid::Transition> transition = {};
-		bool allowDiffNumbers = false;
-		std::vector<std::string> rwys = {};
-		int prio = 99;
-		int initial = 0;
-		bool via = false;
-		bool pilotfiled = false;
-		std::string wingType = "LSAT";
-		std::map<std::string, bool> acftType = {};
-		std::map<std::string, bool> dest = {};
-		std::map<std::string, std::map<std::string, std::vector<std::string>>> route = {};
-		std::string wtc = "";
-		std::string engineType = "";
-		int engineCount = 0;
-		int mtow = 0;
-		std::string customRule = "";
-		std::string area = "";
-		std::map<std::string, bool> equip = { {"RNAV", true} };
-		int lvp = -1;
-		std::map<std::string, std::map<std::string, std::string>> actArrRwy = {};
-		std::map<std::string, std::map<std::string, std::string>> actDepRwy = {};
-		int timeFrom = -1;
-		int timeTo = -1;
-		bool sidHighlight = false;
-		bool clmbHighlight = false;
-	};
-
 	class ConfigParser
 	{
 	public:
@@ -94,12 +61,12 @@ namespace vsid
 		 * @param activeAirports 
 		 * @param savedCustomRules - customRules that are transferred in between rwy change updates
 		 * @param savedSettings - settings that are transferred in between rwy change updates
-		 * @param savedAreas - area settings that are transferred in between rwy change updates
+		 * @param savedStrategies - strategy states that are transferred in between rwy change updates
 		 */
 		void loadAirportConfig(std::map<std::string, vsid::Airport, vsid::utils::CICompare>& activeAirports,
 							std::map<std::string, vsid::Airport::CustomRulesMap>& savedCustomRules,
 							std::map<std::string, std::map<std::string, bool>>& savedSettings,
-							std::map<std::string, vsid::Airport::CustomAreaMap>& savedAreas,
+							std::map<std::string, vsid::v2::StrategyBook>& savedStrategies,
 							std::map<std::string, vsid::Airport::CustomRequestMap>& savedRequests,
 							std::map<std::string, vsid::Airport::CustomRwyRequestMap>& savedRwyRequests
 							);
@@ -164,6 +131,8 @@ namespace vsid
 		std::set<std::string> rnavList;
 		bool preferTopsky;
 		int notifyUpdate;
+		// "provider/field" of an external strategy bridge field, empty when none
+		std::string strategySource;
 		int hovWarningAlt;
 		bool logDevOnly;
 		
@@ -175,14 +144,5 @@ namespace vsid
 		Indicator indicator;
 		json parsedConfig;
 		json vSidConfig;
-
-		std::set<std::string> configValues = { "rwy", "prio", "allowDiffNumbers", "initial", "climbvia", "wpt", "trans", "pilotfiled", "wingType", "acftType",
-				"dest", "route", "wtc", "engineType", "engineCount", "mtow", "customRule", "area", "equip", "lvp", "actArrRwy",
-				"actDepRwy", "timeFrom", "timeTo", "sidHighlight", "clmbHighlight" };
-
-		inline bool isConfigValue(const std::string& value) const
-		{
-			return this->configValues.contains(value);
-		}
 	};
 }

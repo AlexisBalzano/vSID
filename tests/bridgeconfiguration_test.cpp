@@ -53,19 +53,52 @@ void testRefresh()
 	check(rechecked == std::set<std::string>{"CLEARED", "MANUAL"}, "only remaining valid affected flights get suggestion refreshes");
 }
 
+void testStrategySerialized()
+{
+	using namespace vsid::bridgeconfig;
+	using Ordered = nlohmann::ordered_json;
+	Snapshot snapshot;
+	Ordered lfpg = Ordered::object();
+	lfpg["strategy"] = "roulage-mini";
+	lfpg["label"] = "Roulage mini \"quoted\"";
+	lfpg["assign"] = Ordered::object();
+	lfpg["source"] = "manual";
+	lfpg["effective"] = Ordered{{"DIKOL", "south"}, {"LANVI", "nearest"}};
+	snapshot.strategies["LFPG"] = lfpg;
+	const auto fields = serialize(snapshot);
+	const auto& text = fields.at("strategy");
+	check(text.rfind(R"({"LFPG":{"strategy":"roulage-mini",)", 0) == 0, "strategy field keyed by airport, strategy id first");
+	const auto parsed = nlohmann::json::parse(text);
+	check(parsed.at("LFPG").at("strategy") == "roulage-mini" && parsed.at("LFPG").at("label") == "Roulage mini \"quoted\"",
+		"strategy id and escaped label published");
+	check(parsed.at("LFPG").at("effective").at("DIKOL") == "south" && parsed.at("LFPG").at("source") == "manual",
+		"effective modes and source published");
+	check(text.find(R"("label":)") > text.find(R"("strategy":)") && text.find(R"("effective":)") > text.find(R"("source":)"),
+		"per-airport key order kept as produced by the strategy book");
+	check(serialize({}).at("strategy") == "{}", "empty snapshot clears the strategy field");
+}
+
+void testAreasKeyGone()
+{
+	const auto fields = vsid::bridgeconfig::serialize({});
+	check(!fields.contains("areas"), "areas field no longer serialized");
+	check(fields.contains("rules") && fields.contains("autoconfig") && fields.contains("automode") && fields.contains("strategy"),
+		"remaining fields are rules, autoconfig, automode and strategy");
+}
+
 int main()
 {
 	testRefresh();
+	testStrategySerialized();
+	testAreasKeyGone();
 	using namespace vsid::bridgeconfig;
 	using Json = nlohmann::json;
 	Snapshot snapshot;
 	snapshot.rules = {{"LFPB",{{"OPPOSING",true}}},{"LFOB",{{"PGEAST",true}}},{"EGKK",{{"ANY:KEY",false}}}};
-	snapshot.areas = {{"EGKK",{{"AREA\"NAME",true}}}};
 	snapshot.states["LFOB"] = {vsid::autoconfig::Status::Matched, "East|quoted\" profile", {}};
 	auto fields = serialize(snapshot);
 	check(Json::parse(fields.at("rules")).at("LFPB").at("OPPOSING") == true, "LFPB published generically");
 	check(Json::parse(fields.at("rules")).at("LFOB").size() == 1, "LFOB publishes actual PGEAST without invented regional rules");
-	check(Json::parse(fields.at("areas")).at("EGKK").at("AREA\"NAME") == true, "arbitrary areas escaped");
 	check(Json::parse(fields.at("autoconfig")).at("LFOB").at("profile") == "East|quoted\" profile", "profiles safely escaped");
 	check(serialize({}).at("rules") == "{}", "empty snapshot explicitly clears inactive airports");
 	vsid::autoconfig::Controller controller;
@@ -78,15 +111,15 @@ int main()
 	lowercaseAirport.states["EGKK"] = controller.stateFor("egkk");
 	const auto state = Json::parse(serialize(lowercaseAirport).at("autoconfig")).at("EGKK");
 	check(state.at("status") == "MATCHED" && state.at("profile") == "East", "lowercase sector airport publishes matched status instead of NOT_LOADED");
-	std::map<int, std::string> cache;
 	int writes = 0;
-	auto writer = [&](const std::string&) { ++writes; return true; };
-	check(publish(1, "EGKK=1;", 4096, cache, writer) == Publication::Published, "initial publication");
-	check(publish(1, std::string(4097,'X'), 4096, cache, writer) == Publication::Overflow && writes == 1 && cache.at(1) == "EGKK=1;",
+	std::string stored;
+	auto writer = [&](const std::string& value) { ++writes; stored = value; return true; };
+	check(publish("EGKK=1;", 4096, writer) == Publication::Published && stored == "EGKK=1;", "initial publication");
+	check(publish(std::string(4097,'X'), 4096, writer) == Publication::Overflow && writes == 1 && stored == "EGKK=1;",
 		"overflow retains previous bridge value without publishing empty");
-	check(publish(1, "EGKK=1;", 4096, cache, writer) == Publication::Unchanged && writes == 1, "cache suppresses duplicate");
-	check(publish(1, "", 4096, cache, writer) == Publication::Published && writes == 2, "real empty snapshot still clears");
-	check(publish(1, "retry", 4096, cache, [](const auto&) {return false;}) == Publication::Failed && cache.at(1).empty(), "failed write retried");
+	check(publish(std::string(4096,'X'), 4096, writer) == Publication::Published && writes == 2, "value at the limit published");
+	check(publish("", 4096, writer) == Publication::Published && writes == 3 && stored.empty(), "real empty snapshot still clears");
+	check(publish("retry", 4096, [](const auto&) {return false;}) == Publication::Failed, "failed write reported");
 	std::map<std::string,bool> rules{{"ONE",false},{"TWO",true}};
 	std::vector<std::string> selected;
 	check(!assign(rules, std::vector<std::string>{"ONE=on","MISSING=off"}, selected) && !rules.at("ONE") && selected.empty(), "unknown assignment atomic");

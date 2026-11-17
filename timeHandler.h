@@ -36,16 +36,6 @@ namespace vsid
 {
 	namespace time
 	{
-		/**
-		 * @brief Checks if a given SID time restriction is between start and end time
-		 * 
-		 * @param timezone - which timezone should be checked
-		 * @param start - start time
-		 * @param end - end time
-		 * @return if the restricted SID is active
-		 */
-		bool isActive(const std::string& timezone, const int start, const int end);
-
 		//************************************
 		// Description: Get the current date as string in format YYYY-MM-DD
 		// Method:    getDate
@@ -84,57 +74,6 @@ namespace vsid
 			if (std::strftime(timeBuffer.data(), timeBuffer.size(), fmtStr.data(), &tm) > 0) return std::string(timeBuffer.data());
 
 			return "TIME_ERROR";
-		}
-
-		//************************************
-		// Description: Caches timezone and provides fallback if timezone unavailable
-		// Method:    getCachedTimeZone
-		// FullName:  vsid::time::getCachedTimeZone
-		// Access:    public 
-		// Returns:   const std::chrono::time_zone* - using "UTC" if using Wine or on timezone error
-		// Qualifier:
-		// Parameter: const std::string & tzName
-		//************************************
-		inline const std::chrono::time_zone* getCachedTimeZone(const std::string& tzName)
-		{
-			thread_local std::unordered_map<std::string, const std::chrono::time_zone*> tzCache;
-
-			if (auto it = tzCache.find(tzName); it != tzCache.end()) return it->second;
-
-			const std::chrono::time_zone* tz = nullptr;
-
-			try
-			{
-				tz = std::chrono::locate_zone(vsid::utils::usingWine() ? "UTC" : tzName);
-
-				messageHandler->removeGenError(ERROR_TIME_ZONE);
-			}
-			catch (const std::runtime_error&e )
-			{
-				tz = std::chrono::locate_zone("UTC");
-
-				if (!messageHandler->genErrorsContains(ERROR_TIME_ZONE))
-				{
-					vsid::Logger::log(vsid::LogLevel::Warning, std::format("Invalid timezone [{}]. Fallback to UTC - [{}]", tzName, e.what()));
-
-					messageHandler->addGenError(ERROR_TIME_ZONE);
-				}
-			}
-			catch (const std::exception& e)
-			{
-				tz = std::chrono::locate_zone("UTC");
-
-				if (!messageHandler->genErrorsContains(ERROR_TIME_ZONE))
-				{
-					vsid::Logger::log(vsid::LogLevel::Error, std::format("Unexpected exception on timezone [{}]. Fallback to UTC - [{}]", tzName, e.what()));
-
-					messageHandler->addGenError(ERROR_TIME_ZONE);
-				}
-			}
-
-			tzCache[tzName] = tz;
-
-			return tz;
 		}
 
 		/**

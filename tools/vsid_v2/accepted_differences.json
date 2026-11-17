@@ -1,0 +1,101 @@
+{
+	"_notes": {
+		"LFBO": "Two options for the nav. As converted (runway groups airbus/other, selection, defaultStrategy nearest), the LFBO differences listed above (144 cases) are the price of `nearest` preferring the airbus runways. Without `selection` for the LFBO points (one implicit group, declaration order), v2 reproduces v1 on all but 8 cases (MEN, FINOT, LACOU, FISTO turboprops inside the airbus area at 14: v1 H 14R, v2 A 14L), but `nearest` then only enables the AMOLO A 14R area entry and no longer prefers the airbus runways. The conversion keeps the groups (spec 5.1); the nav chooses."
+	},
+	"*": [
+		{
+			"match": { "engine": "[!JPT]", "expect": "-", "got": "? * *" },
+			"reason": "engine type outside J, P, T: an entry merged from J and PT variants has no engine condition in v2 and accepts every engine type (deliberate), v1 gave no SID"
+		}
+	],
+	"LFBO": [
+		{
+			"match": { "waypoint": ["AMOLO", "FINOT", "FISTO", "LACOU", "MEN"], "depRwys": "14R,14L", "mode": "default", "expect": "H 14R 7000", "got": "H 14L 7000" },
+			"reason": "nav decision: prio tie between 14L and 14R (H2/H3 at prio 2, GAUDE and LMB A2/A3): v1 takes the variant read last (14R); v2 tries the groups in the selection order, other (14L, 32R) first since B 32R has prio 1, so 14L"
+		},
+		{
+			"match": { "waypoint": ["AMOLO", "FINOT", "FISTO", "LACOU", "MEN"], "depRwys": "14R,14L", "mode": "nearest", "position": null, "expect": "H 14R 7000", "got": "H 14L 7000" },
+			"reason": "nav decision: prio tie between 14L and 14R (H2/H3 at prio 2, GAUDE and LMB A2/A3): v1 takes the variant read last (14R); v2 tries the groups in the selection order, other (14L, 32R) first since B 32R has prio 1, so 14L"
+		},
+		{
+			"match": { "waypoint": ["GAUDE", "LMB"], "depRwys": "14R,14L", "mode": "default", "expect": "A 14R 7000", "got": "A 14L 7000" },
+			"reason": "nav decision: prio tie between 14L and 14R (H2/H3 at prio 2, GAUDE and LMB A2/A3): v1 takes the variant read last (14R); v2 tries the groups in the selection order, other (14L, 32R) first since B 32R has prio 1, so 14L"
+		},
+		{
+			"match": { "waypoint": ["GAUDE", "LMB"], "depRwys": "14R,14L", "mode": "nearest", "position": null, "expect": "A 14R 7000", "got": "A 14L 7000" },
+			"reason": "nav decision: prio tie between 14L and 14R (H2/H3 at prio 2, GAUDE and LMB A2/A3): v1 takes the variant read last (14R); v2 tries the groups in the selection order, other (14L, 32R) first since B 32R has prio 1, so 14L"
+		},
+		{
+			"match": { "waypoint": ["FINOT", "FISTO", "LACOU", "MEN", "MORIL", "RIBOU"], "depRwys": "14R,14L", "mode": "nearest", "position": {}, "expect": "A 14L 7000", "got": "A 14R 7000" },
+			"reason": "nav decision: area variant A1 (14R, airbus) ties at prio 1 with A2 (14L), which v1 reads last: in v1 the airbus area never gives 14R; v2 nearest sends aircraft inside the area to 14R"
+		},
+		{
+			"match": { "waypoint": ["AMOLO", "FINOT", "FISTO", "LACOU", "MEN", "MORIL", "RIBOU", "GAUDE", "LMB"], "depRwys": "32L,32R", "mode": "nearest", "position": {}, "expect": "B 32R 7000", "got": "B 32L 7000" },
+			"reason": "nav decision: area variant B1 (32L, airbus) ties at prio 1 with B2 (32R), which v1 reads last: in v1 the airbus area never gives 32L; v2 nearest sends aircraft inside the area to 32L"
+		}
+	],
+	"LFPB": [
+		{
+			"match": { "waypoint": "PN", "depRwys": "07,25,09,27,03,21", "rules": { "opposing": true }, "expect": "C 25 4000", "got": "M 07 3000" },
+			"reason": "nav decision: prio tie PN C1 (25) / M1 (07, opposing) at prio 1, only with both directions active: v1 takes C1 (read last), v2 puts the opposing entry first"
+		}
+	],
+	"LFPG": [
+		{
+			"match": { "waypoint": "LGL", "engine": "J", "mode": "nearest", "position": {}, "expect": "B 26R 10000", "got": "A 27L 10000" },
+			"reason": "nav decision: LGL A3/A4 (north area variants) are typed PT instead of J/PT: in v1 a jet parked north gets no north variant and departs 26R (B, prio 4); v2 nearest tries the north group first and gives A 27L (spec 6)"
+		}
+	],
+	"LFPO": [
+		{
+			"match": { "waypoint": ["AGOPA", "ATREX", "BAXIR", "BUBLI", "DIKOL", "ELCOB", "ERIXU", "LATRA", "MONOT", "NURMO", "OKASI", "OLZOM", "OPALE", "PILUL", "RANUX", "LGL"], "rules": { "opposing": true }, "expect": "W 24 8000", "got": "Q 24 8000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": ["AGOPA", "ATREX", "BAXIR", "BUBLI", "DIKOL", "ELCOB", "ERIXU", "LATRA", "MONOT", "NURMO", "OKASI", "OLZOM", "OPALE", "PILUL", "RANUX"], "rules": { "opposing": true }, "expect": "X 25 8000", "got": "R 25 8000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "DORDI", "rules": { "opposing": true }, "expect": "W 24 6000", "got": "Q 24 6000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "DORDI", "rules": { "opposing": true }, "expect": "X 25 6000", "got": "R 25 6000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "PG", "rules": { "opposing": true }, "expect": "W 24 5000", "got": "Q 24 7000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "PG", "rules": { "opposing": true }, "expect": "X 25 5000", "got": "R 25 7000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "LGL", "depRwys": "24", "engine": "[PT]", "rules": { "opposing": true }, "expect": "W 24 8000", "got": "Q 24 7000" },
+			"reason": "nav decision: opposing variants tie with the normal ones at equal prio: v1 takes the variant read last, so with opposing active 24 keeps W and 25 keeps X (Q and R are read before them); v2 puts the opposing entries first"
+		},
+		{
+			"match": { "waypoint": "LGL", "depRwys": ["20,24,25", "02,20,06,24,07,25"], "engine": "J", "rules": { "opposing": true }, "expect": "W 24 8000", "got": "R 25 8000" },
+			"reason": "nav decision: LGL opposing variants on 20, 25 (and 06) tie at prio 1 with W1 (24, read last): with several runways active v1 keeps W 24, v2 takes the first opposing entry eligible for the engine type"
+		},
+		{
+			"match": { "waypoint": "LGL", "depRwys": ["20,24,25", "02,20,06,24,07,25"], "engine": "[PT]", "rules": { "opposing": true }, "expect": "W 24 8000", "got": "S 20 7000" },
+			"reason": "nav decision: LGL opposing variants on 20, 25 (and 06) tie at prio 1 with W1 (24, read last): with several runways active v1 keeps W 24, v2 takes the first opposing entry eligible for the engine type"
+		},
+		{
+			"match": { "waypoint": "LGL", "depRwys": "20,24,25", "engine": "E", "rules": { "opposing": true }, "expect": "W 24 8000", "got": "B 20 8000" },
+			"reason": "nav decision: LGL opposing variants on 20, 25 (and 06) tie at prio 1 with W1 (24, read last): with several runways active v1 keeps W 24, v2 takes the first opposing entry eligible for the engine type"
+		},
+		{
+			"match": { "waypoint": "LGL", "depRwys": "02,20,06,24,07,25", "engine": "E", "rules": { "opposing": true }, "expect": "W 24 8000", "got": "H 06 10000" },
+			"reason": "nav decision: LGL opposing variants on 20, 25 (and 06) tie at prio 1 with W1 (24, read last): with several runways active v1 keeps W 24, v2 takes the first opposing entry eligible for the engine type"
+		}
+	],
+	"LFRH": [
+		{
+			"match": { "waypoint": "OMNI", "expect": [" 02 0", " 07 0", " 20 0", " 25 0"], "got": "-" },
+			"reason": "nav decision: config anomaly: OMNI > '1' > 'D' has no designator (v1 reads '1' as a number and 'D' as the variant id) and offers a SID with an empty designator; v2 requires a designator and drops it"
+		}
+	]
+}

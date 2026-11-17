@@ -86,24 +86,6 @@ std::vector<std::string> vsid::fplnhelper::clean(const EuroScopePlugIn::CFlightP
 	return filedRoute;
 }
 
-// #evaluate - do we still need filedSidWpt or should we used the stored value?
-
-std::string vsid::fplnhelper::getTransition(const EuroScopePlugIn::CFlightPlan& FlightPlan, const std::map<std::string, vsid::Transition>& transition,
-	const std::string& filedSidWpt)
-{
-	if (transition.empty()) return "";
-
-	std::vector<std::string> route = vsid::fplnhelper::clean(FlightPlan, filedSidWpt);
-
-	for (auto& [base, trans] : transition)
-	{
-		if (std::find(route.begin(), route.end(), base) == route.end()) continue;
-		return trans.base + trans.number + trans.designator;
-	}
-	vsid::Logger::log(vsid::LogLevel::Debug, std::format("[{}] no matching transition wpt found", FlightPlan.GetCallsign()), vsid::DebugLevel::Sid);
-	return ""; // fallback if no transition could be matched
-}
-
 std::pair<std::string, std::string> vsid::fplnhelper::splitTransition(std::string atcSid) // #refactor to string_view
 {
 	if (atcSid.size() < 2) return { "", "" };
@@ -346,7 +328,6 @@ void vsid::fplnhelper::saveFplnInfo(const std::string& callsign, vsid::Fpln fpln
 	savedFplnInfo[callsign].sid = {};
 	savedFplnInfo[callsign].customSid = {};
 	savedFplnInfo[callsign].sidWpt = "";
-	savedFplnInfo[callsign].transition = "";
 	savedFplnInfo[callsign].validEquip = true;
 }
 

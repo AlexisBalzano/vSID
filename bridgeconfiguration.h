@@ -16,7 +16,7 @@ namespace vsid::bridgeconfig
 	struct Snapshot
 	{
 		AirportRules rules;
-		AirportRules areas;
+		std::map<std::string, nlohmann::ordered_json> strategies; // StrategyBook::toBridge per airport
 		std::map<std::string, bool> assignmentAuto;
 		std::map<std::string, autoconfig::State> states;
 		std::set<std::string> manualAirports;
@@ -32,30 +32,28 @@ namespace vsid::bridgeconfig
 				{ "profile", state.profile }, { "detail", state.detail },
 				{ "manual", snapshot.manualAirports.contains(icao) }
 			};
+		nlohmann::ordered_json strategies = nlohmann::ordered_json::object();
+		for (const auto& [icao, strategy] : snapshot.strategies) strategies[icao] = strategy;
 		std::string automatic;
 		for (const auto& [icao, enabled] : snapshot.assignmentAuto)
 			if (icao.size() == 4) automatic += icao + (enabled ? "=1;" : "=0;");
 		return {
 			{ "rules", nlohmann::json(snapshot.rules).dump() },
-			{ "areas", nlohmann::json(snapshot.areas).dump() },
+			{ "strategy", strategies.dump() },
 			{ "autoconfig", states.dump() },
 			{ "automode", automatic }
 		};
 	}
 
-	enum class Publication { Unchanged, Overflow, Published, Failed };
+	enum class Publication { Overflow, Published, Failed };
 
-	/** @brief Never replace a valid publication with an overflow placeholder. */
-	template<class Field, class Writer>
-	Publication publish(Field field, const std::string& value, std::size_t limit,
-		std::map<Field, std::string>& cache, Writer write)
+	/** @brief Never replace a valid publication with an overflow placeholder. No dirty tracking:
+	 *  the bridge compares first and ignores a write identical to the stored value (B1.9). */
+	template<class Writer>
+	Publication publish(const std::string& value, std::size_t limit, Writer write)
 	{
 		if (value.size() > limit) return Publication::Overflow;
-		const auto previous = cache.find(field);
-		if (previous != cache.end() && previous->second == value) return Publication::Unchanged;
-		if (!write(value)) return Publication::Failed;
-		cache[field] = value;
-		return Publication::Published;
+		return write(value) ? Publication::Published : Publication::Failed;
 	}
 
 	/** @brief Validate a complete explicit rule assignment before changing any rule. */

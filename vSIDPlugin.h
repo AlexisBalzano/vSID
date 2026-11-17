@@ -51,13 +51,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "logger.h"
 
 
-#define ESB_CLIENT_SHIM
+// ESB_CLIENT_SHIM (ESB_Attach, esb_api, ESB_SelfModule, ESB_Str) is defined in vSIDPlugin.cpp
+// only: the shim holds file-static attach state, so it must exist in exactly one .cpp (A2).
 #include "include/PluginBridge/esbridge.h"
 
 namespace vsid
 {
 	const std::string pluginName = "vSID";
-	const std::string pluginVersion = "0.15.0.3";
+	const std::string pluginVersion = "0.16.0";
 	const std::string pluginAuthor = "Gameagle, French vACC";
 	const std::string pluginCopyright = "GPL v3";
 	const std::string pluginViewAviso = "";
@@ -70,6 +71,17 @@ namespace vsid
 	static constexpr const char* BRIDGE_CFL_FIELD = "cfl";
 	static constexpr uint32_t BRIDGE_FIELD_MAX_BYTES = 32;
 	static constexpr int BRIDGE_MISSING_TICKS_BEFORE_WARNING = 10;
+
+	// Shim-free ESB_Str for the .cpp files that do not own the client shim. Borrows the
+	// string's buffer, so the string must outlive the set_* call.
+	inline ESB_Value bridgeStr(const std::string& s)
+	{
+		ESB_Value v = {};
+		v.type = ESB_T_STR;
+		v.bytes = static_cast<uint32_t>(s.size());
+		v.v.ptr = s.data();
+		return v;
+	}
 	static constexpr int BRIDGE_SWEEP_MAX_NEW = 10; // cap the fplns newly processed per sweep
 
 	struct Command {
@@ -107,7 +119,6 @@ namespace vsid
 
 		//************************************
 		// Description: Returns the SID waypoint found in the route or empty if none was found. Checks ES determined SID first.
-		// Considers transition waypoints
 		// Method:    findSidWpt
 		// FullName:  vsid::VSIDPlugin::findSidWpt
 		// Access:    public 
@@ -398,6 +409,33 @@ namespace vsid
 		bool RegisterBridgeProvider();
 		void publishBridgeConfiguration();
 		bool handleRulesConfigurationCommand(const vsid::Command& command);
+		//************************************
+		// Description: ".vsid strategy ICAO [id|nominal|resume]" and ".vsid assign ICAO WPT=mode...|clear"
+		//************************************
+		bool handleStrategyCommand(const vsid::Command& command);
+		//************************************
+		// Description: Resolve and subscribe to the "strategySource" bridge field of the main config,
+		// retried every 30 s while the field cannot be found
+		//************************************
+		void connectStrategySource(int counter);
+		//************************************
+		// Description: Apply the external strategy value to every active airport it names.
+		// Returns the airports whose published strategy state changed (nothing is published here).
+		//************************************
+		std::set<std::string> applyStrategySource();
+		//************************************
+		// Description: Apply the external value, then publish and refresh what changed. Never called
+		// from the bridge callback (see markStrategySourceChanged)
+		//************************************
+		void onStrategySourceChanged();
+		//************************************
+		// Description: Bridge change callback: only flags the change, consumed by OnTimer
+		//************************************
+		void markStrategySourceChanged() { this->strategySourcePending_ = true; }
+		//************************************
+		// Description: vSID's own HMODULE (ESB_SelfModule), usable outside the shim's .cpp
+		//************************************
+		static void* bridgeModule();
 
 		//************************************
 		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
@@ -496,7 +534,11 @@ namespace vsid
 		std::string configPath;
 		std::map<std::string, std::map<std::string, bool>> savedSettings;
 		std::map<std::string, vsid::Airport::CustomRulesMap> savedRules;
-		std::map<std::string, vsid::Airport::CustomAreaMap> savedAreas;
+		//************************************
+		// Description: Strategy states kept across airport updates (never cleared, so a deactivated
+		// airport finds its state back when reactivated)
+		//************************************
+		std::map<std::string, vsid::v2::StrategyBook> savedStrategies;
 		std::map<std::string, vsid::Fpln> savedFplnInfo = {};
 		//************************************
 		// Description: Stores requests during airport updates
@@ -558,13 +600,20 @@ namespace vsid
 		ESB_FieldId bridgeRwyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeCflField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeRulesField_ = ESB_FIELD_NONE;
-		ESB_FieldId bridgeAreasField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeStrategyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutomaticModeField_ = ESB_FIELD_NONE;
-		std::map<ESB_FieldId, std::string> bridgeConfigurationCache_;
 		std::set<ESB_FieldId> bridgeConfigurationWarnings_;
 		int bridgeMissingTicks_ = 0;
 		bool bridgeProviderConflict_ = false; // Another module owns "vsid"; stop retrying
+		// External strategy source ("provider/field" from the main config)
+		std::string strategySourceName_;                 // name currently subscribed, or being attempted
+		ESB_FieldId strategySourceField_ = ESB_FIELD_NONE;
+		ESB_Sub* strategySourceSub_ = nullptr;
+		int strategySourceNextAttempt_ = 0;              // OnTimer counter of the next resolve attempt
+		bool strategySourceMissingLogged_ = false;       // "not found" said once per name
+		bool strategySourcePending_ = false;             // source changed; applied by the next OnTimer
+		std::set<std::size_t> strategySourceWarnings_;   // hashes of invalid contents already warned about
 
 		// #dev scratchpad storage
 		std::string lastScratchCS;

@@ -40,7 +40,6 @@ namespace vsid
 		vsid::Sid sid = {};
 		vsid::Sid customSid = {};
 		std::string sidWpt = "";
-		std::string transition = "";
 		std::pair<std::string, bool> intsec = {};
 		std::chrono::time_point<std::chrono::system_clock, std::chrono::seconds> lastUpdate;
 		int updateCounter = 0;
@@ -71,19 +70,6 @@ namespace vsid
 		// Parameter: std::string filedSidWpt
 		//************************************
 		std::vector<std::string> clean(const EuroScopePlugIn::CFlightPlan &FlightPlan, std::string filedSidWpt = "");
-
-		//************************************
-		// Description: Compares available transitions with the route and returns a matching transition
-		// Method:    getTransition
-		// FullName:  vsid::fpln::getTransition
-		// Access:    public 
-		// Returns:   std::string - found transition or empty string if not
-		// Qualifier:
-		// Parameter: const std::vector<std::string> & route - filed route split in single elements
-		// Parameter: const std::map<std::string, vsid::Transition> & - map of all transitions for a given SID
-		//************************************		
-		std::string getTransition(const EuroScopePlugIn::CFlightPlan& FlightPlan, const std::map<std::string, vsid::Transition>& transition,
-			const std::string &filedSidWpt);
 
 		//************************************
 		// Description: Splits the SID at 'X' for use with SIDxTRANS

@@ -22,23 +22,12 @@ bool vsid::Sid::empty() const
 	return base == "";
 }
 
-bool vsid::Sid::collapsedBaseMatch(std::string_view other, std::optional<std::string_view> trans)
+bool vsid::Sid::collapsedBaseMatch(std::string_view other)
 {
 	std::string collapsed;
-	std::string_view s;
+	collapsed.reserve(this->base.size());
 
-	if (!trans)
-	{
-		collapsed.reserve(this->base.size());
-		s = this->base;
-	}
-	else
-	{
-		collapsed.reserve(trans.value().size());
-		s = trans.value();
-	}
-
-	for (char c : s)
+	for (char c : this->base)
 	{
 		if (collapsed.empty() || collapsed.back() != c) collapsed.push_back(c);
 	}

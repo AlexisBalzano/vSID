@@ -4,7 +4,7 @@
 #include "flightplan.h"
 #include "configurationrefresh.h"
 
-/** @brief Publish actual rules and areas for every active airport without regional policy. */
+/** @brief Publish actual rules and strategies for every active airport without regional policy. */
 void vsid::VSIDPlugin::publishBridgeConfiguration()
 {
 	if (!this->bridgeApi_ || !this->bridgeProvider_) return;
@@ -13,8 +13,7 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 	{
 		const auto icao = utils::toupper(airportKey);
 		snapshot.rules[icao] = { airport.customRules.begin(), airport.customRules.end() };
-		auto& areas = snapshot.areas[icao];
-		for (const auto& [name, area] : airport.areas) areas[name] = area.isActive;
+		snapshot.strategies[icao] = airport.strategy.toBridge(airport.sidConfig);
 		const auto automatic = airport.settings.find("auto");
 		if (automatic != airport.settings.end()) snapshot.assignmentAuto[icao] = automatic->second;
 		snapshot.states[icao] = this->autoConfiguration.stateFor(airportKey);
@@ -23,10 +22,10 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 	const auto values = bridgeconfig::serialize(snapshot);
 	const auto publish = [&](ESB_FieldId field, const std::string& name, std::size_t limit)
 	{
-		const auto result = bridgeconfig::publish(field, values.at(name), limit, this->bridgeConfigurationCache_,
+		const auto result = bridgeconfig::publish(values.at(name), limit,
 			[&](const std::string& value)
 			{
-				const auto data = ESB_Str(value.c_str());
+				const auto data = bridgeStr(value);
 				return this->bridgeApi_->set_global(this->bridgeProvider_, field, &data) == ESB_OK;
 			});
 		if (result == bridgeconfig::Publication::Overflow)
@@ -37,7 +36,7 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 		else this->bridgeConfigurationWarnings_.erase(field);
 	};
 	publish(this->bridgeRulesField_, "rules", bridgeconfig::ConfigurationMaxBytes);
-	publish(this->bridgeAreasField_, "areas", bridgeconfig::ConfigurationMaxBytes);
+	publish(this->bridgeStrategyField_, "strategy", bridgeconfig::ConfigurationMaxBytes);
 	publish(this->bridgeAutoConfigField_, "autoconfig", bridgeconfig::ConfigurationMaxBytes);
 	publish(this->bridgeAutomaticModeField_, "automode", bridgeconfig::AutomaticModeMaxBytes);
 }
