@@ -216,6 +216,38 @@ void testToBridge()
 	check(overridden["effective"]["LANVI"] == "south" && overridden["effective"]["DIKOL"] == "nearest", "other points resolved");
 }
 
+void testPruneInvalidAfterReload()
+{
+	const auto cfg = lfpg();
+	auto book = fresh(cfg);
+	std::string error;
+	check(book.setStrategy(cfg, "ranux-dikol-sud", error), "set");
+	check(book.assign(cfg, { "PO=north", "LANVI=south", "OKASI=nearest" }, error), "assign");
+
+	// reloaded config: PO gone, group south renamed
+	auto json = fixtures::lfpg();
+	json["procedures"].erase("PO");
+	json["selection"].erase("PO");
+	json["runwayGroups"]["sud"] = json["runwayGroups"]["south"];
+	json["runwayGroups"].erase("south");
+	json["areas"]["south"]["group"] = "sud";
+	json["selection"]["DIKOL"] = Json::array({ "north", "sud" });
+	json["selection"]["LANVI"] = Json::array({ "sud", "north" });
+	json["strategies"]["ranux-dikol-sud"]["assign"]["DIKOL"] = "sud";
+	AirportConfig reloaded;
+	check(parseAirport(json, "LFPG", reloaded, error), "reloaded config parses");
+
+	const auto dropped = book.pruneInvalid(reloaded);
+	check((dropped == std::vector<std::string>{ "LANVI=south", "PO=north" }), "unknown waypoint and unknown mode dropped");
+	check(book.modeFor(reloaded, "OKASI") == "nearest", "valid pair kept");
+	check(book.modeFor(reloaded, "LANVI") == "default", "dropped pair falls back to the strategy");
+	check(book.active() == "ranux-dikol-sud" && book.manualOverride(), "strategy and override state kept");
+	const Json bridge = book.toBridge(reloaded);
+	check(bridge["assign"] == Json::parse(R"({"OKASI":"nearest"})"), "bridge assign pruned");
+	check(book.pruneInvalid(reloaded).empty(), "nothing left to drop");
+	check(fresh(cfg).pruneInvalid(cfg).empty(), "nothing dropped on the same config");
+}
+
 int main()
 {
 	testResetUsesDefaultStrategy();
@@ -232,6 +264,7 @@ int main()
 	testExternalNominal();
 	testExternalInvalidWhileManualOverride();
 	testToBridge();
+	testPruneInvalidAfterReload();
 	std::cout << "Strategy tests passed\n";
 	return 0;
 }

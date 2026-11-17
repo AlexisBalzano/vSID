@@ -144,7 +144,9 @@ for every other point) to mode. The nominal strategy puts every point in `defaul
 session; absent, the airport starts in `nominal`. The mode of a point
 is its override (`.vsid assign`), else its entry in the active strategy, else the
 strategy's `*`, else `default`. The state lasts for the session and survives airport
-deactivation, reactivation and `.vsid reload`.
+deactivation, reactivation and `.vsid reload`. After a reload, a strategy that is no
+longer configured falls back to the config default, and overrides naming a point or a
+mode the config no longer has are dropped (with a warning).
 
 ```text
 .vsid strategy LFPG                      shows the active strategy, overrides and source

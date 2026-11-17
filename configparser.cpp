@@ -607,7 +607,13 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 						{
 							const std::string& active = saved->second.active();
 
-							if (active.empty() || aptInfo.sidConfig.findStrategy(active)) aptInfo.strategy = saved->second;
+							if (active.empty() || aptInfo.sidConfig.findStrategy(active))
+							{
+								aptInfo.strategy = saved->second;
+								const std::vector<std::string> dropped = aptInfo.strategy.pruneInvalid(aptInfo.sidConfig);
+								if (!dropped.empty()) vsid::Logger::log(vsid::LogLevel::Warning, std::format("[{}] assignments no longer valid in the config, dropped: {}",
+									icao, vsid::utils::join(dropped, ' ')));
+							}
 							else vsid::Logger::log(vsid::LogLevel::Warning, std::format("[{}] strategy [{}] is no longer configured. Back to the config default.",
 								icao, active));
 						}

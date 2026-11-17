@@ -108,6 +108,26 @@ namespace vsid::v2
 		m_manualOverride = false;
 	}
 
+	std::vector<std::string> StrategyBook::pruneInvalid(const AirportConfig& cfg)
+	{
+		std::vector<std::string> dropped;
+		for (auto it = m_assign.begin(); it != m_assign.end();)
+		{
+			const std::string canon = hasWaypoint(cfg, it->first) ? canonicalMode(cfg, it->second) : "";
+			if (canon.empty())
+			{
+				dropped.push_back(it->first + "=" + it->second);
+				it = m_assign.erase(it);
+			}
+			else
+			{
+				it->second = canon;
+				++it;
+			}
+		}
+		return dropped;
+	}
+
 	bool StrategyBook::applyExternal(const AirportConfig& cfg, const nlohmann::json& value, std::string& error)
 	{
 		if (!value.is_object()) { error = "Strategy value must be an object"; return false; }
