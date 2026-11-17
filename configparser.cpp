@@ -65,6 +65,15 @@ void vsid::ConfigParser::loadMainConfig()
 
 	this->logDevOnly = this->vSidConfig.value("logDevOnly", false);
 
+	// optional external strategy source ("provider/field")
+
+	this->strategySource = "";
+	if (this->vSidConfig.contains("strategySource"))
+	{
+		if (this->vSidConfig.at("strategySource").is_string()) this->strategySource = this->vSidConfig.at("strategySource").get<std::string>();
+		else vsid::Logger::log(vsid::LogLevel::Warning, "Main config: \"strategySource\" must be a \"provider/field\" string; ignored.");
+	}
+
 	try
 	{
 		// import colors or set default values

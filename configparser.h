@@ -131,6 +131,8 @@ namespace vsid
 		std::set<std::string> rnavList;
 		bool preferTopsky;
 		int notifyUpdate;
+		// "provider/field" of an external strategy bridge field, empty when none
+		std::string strategySource;
 		int hovWarningAlt;
 		bool logDevOnly;
 		

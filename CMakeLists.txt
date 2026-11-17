@@ -127,6 +127,7 @@ set(SOURCES
     logger.cpp
     pch.cpp
     sid.cpp
+    strategy_plugin.cpp
     syncManager.cpp
     timeHandler.cpp
     utils.cpp

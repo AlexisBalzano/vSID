@@ -16,7 +16,7 @@ namespace vsid::bridgeconfig
 	struct Snapshot
 	{
 		AirportRules rules;
-		AirportRules areas;
+		std::map<std::string, nlohmann::ordered_json> strategies; // StrategyBook::toBridge per airport
 		std::map<std::string, bool> assignmentAuto;
 		std::map<std::string, autoconfig::State> states;
 		std::set<std::string> manualAirports;
@@ -32,12 +32,14 @@ namespace vsid::bridgeconfig
 				{ "profile", state.profile }, { "detail", state.detail },
 				{ "manual", snapshot.manualAirports.contains(icao) }
 			};
+		nlohmann::ordered_json strategies = nlohmann::ordered_json::object();
+		for (const auto& [icao, strategy] : snapshot.strategies) strategies[icao] = strategy;
 		std::string automatic;
 		for (const auto& [icao, enabled] : snapshot.assignmentAuto)
 			if (icao.size() == 4) automatic += icao + (enabled ? "=1;" : "=0;");
 		return {
 			{ "rules", nlohmann::json(snapshot.rules).dump() },
-			{ "areas", nlohmann::json(snapshot.areas).dump() },
+			{ "strategy", strategies.dump() },
 			{ "autoconfig", states.dump() },
 			{ "automode", automatic }
 		};

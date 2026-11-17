@@ -4,7 +4,7 @@
 #include "flightplan.h"
 #include "configurationrefresh.h"
 
-/** @brief Publish actual rules and areas for every active airport without regional policy. */
+/** @brief Publish actual rules and strategies for every active airport without regional policy. */
 void vsid::VSIDPlugin::publishBridgeConfiguration()
 {
 	if (!this->bridgeApi_ || !this->bridgeProvider_) return;
@@ -13,7 +13,7 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 	{
 		const auto icao = utils::toupper(airportKey);
 		snapshot.rules[icao] = { airport.customRules.begin(), airport.customRules.end() };
-		snapshot.areas[icao] = {}; // v1 areas are gone; the field itself is replaced by the strategy field later
+		snapshot.strategies[icao] = airport.strategy.toBridge(airport.sidConfig);
 		const auto automatic = airport.settings.find("auto");
 		if (automatic != airport.settings.end()) snapshot.assignmentAuto[icao] = automatic->second;
 		snapshot.states[icao] = this->autoConfiguration.stateFor(airportKey);
@@ -36,7 +36,7 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 		else this->bridgeConfigurationWarnings_.erase(field);
 	};
 	publish(this->bridgeRulesField_, "rules", bridgeconfig::ConfigurationMaxBytes);
-	publish(this->bridgeAreasField_, "areas", bridgeconfig::ConfigurationMaxBytes);
+	publish(this->bridgeStrategyField_, "strategy", bridgeconfig::ConfigurationMaxBytes);
 	publish(this->bridgeAutoConfigField_, "autoconfig", bridgeconfig::ConfigurationMaxBytes);
 	publish(this->bridgeAutomaticModeField_, "automode", bridgeconfig::AutomaticModeMaxBytes);
 }

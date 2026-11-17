@@ -398,6 +398,24 @@ namespace vsid
 		bool RegisterBridgeProvider();
 		void publishBridgeConfiguration();
 		bool handleRulesConfigurationCommand(const vsid::Command& command);
+		//************************************
+		// Description: ".vsid strategy ICAO [id|nominal|resume]" and ".vsid assign ICAO WPT=mode...|clear"
+		//************************************
+		bool handleStrategyCommand(const vsid::Command& command);
+		//************************************
+		// Description: Resolve and subscribe to the "strategySource" bridge field of the main config,
+		// retried every 30 s while the field cannot be found
+		//************************************
+		void connectStrategySource(int counter);
+		//************************************
+		// Description: Apply the external strategy value to every active airport it names.
+		// Returns the airports whose published strategy state changed (nothing is published here).
+		//************************************
+		std::set<std::string> applyStrategySource();
+		//************************************
+		// Description: Bridge change callback target: apply, then publish and refresh what changed
+		//************************************
+		void onStrategySourceChanged();
 
 		//************************************
 		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
@@ -562,13 +580,20 @@ namespace vsid
 		ESB_FieldId bridgeRwyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeCflField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeRulesField_ = ESB_FIELD_NONE;
-		ESB_FieldId bridgeAreasField_ = ESB_FIELD_NONE;
+		ESB_FieldId bridgeStrategyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutomaticModeField_ = ESB_FIELD_NONE;
 		std::map<ESB_FieldId, std::string> bridgeConfigurationCache_;
 		std::set<ESB_FieldId> bridgeConfigurationWarnings_;
 		int bridgeMissingTicks_ = 0;
 		bool bridgeProviderConflict_ = false; // Another module owns "vsid"; stop retrying
+		// External strategy source ("provider/field" from the main config)
+		std::string strategySourceName_;                 // name currently subscribed, or being attempted
+		ESB_FieldId strategySourceField_ = ESB_FIELD_NONE;
+		ESB_Sub* strategySourceSub_ = nullptr;
+		int strategySourceNextAttempt_ = 0;              // OnTimer counter of the next resolve attempt
+		bool strategySourceMissingLogged_ = false;       // "not found" said once per name
+		std::set<std::size_t> strategySourceWarnings_;   // hashes of invalid contents already warned about
 
 		// #dev scratchpad storage
 		std::string lastScratchCS;

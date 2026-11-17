@@ -53,19 +53,52 @@ void testRefresh()
 	check(rechecked == std::set<std::string>{"CLEARED", "MANUAL"}, "only remaining valid affected flights get suggestion refreshes");
 }
 
+void testStrategySerialized()
+{
+	using namespace vsid::bridgeconfig;
+	using Ordered = nlohmann::ordered_json;
+	Snapshot snapshot;
+	Ordered lfpg = Ordered::object();
+	lfpg["strategy"] = "roulage-mini";
+	lfpg["label"] = "Roulage mini \"quoted\"";
+	lfpg["assign"] = Ordered::object();
+	lfpg["source"] = "manual";
+	lfpg["effective"] = Ordered{{"DIKOL", "south"}, {"*", "nearest"}};
+	snapshot.strategies["LFPG"] = lfpg;
+	const auto fields = serialize(snapshot);
+	const auto& text = fields.at("strategy");
+	check(text.rfind(R"({"LFPG":{"strategy":"roulage-mini",)", 0) == 0, "strategy field keyed by airport, strategy id first");
+	const auto parsed = nlohmann::json::parse(text);
+	check(parsed.at("LFPG").at("strategy") == "roulage-mini" && parsed.at("LFPG").at("label") == "Roulage mini \"quoted\"",
+		"strategy id and escaped label published");
+	check(parsed.at("LFPG").at("effective").at("DIKOL") == "south" && parsed.at("LFPG").at("source") == "manual",
+		"effective modes and source published");
+	check(text.find(R"("label":)") > text.find(R"("strategy":)") && text.find(R"("effective":)") > text.find(R"("source":)"),
+		"per-airport key order kept as produced by the strategy book");
+	check(serialize({}).at("strategy") == "{}", "empty snapshot clears the strategy field");
+}
+
+void testAreasKeyGone()
+{
+	const auto fields = vsid::bridgeconfig::serialize({});
+	check(!fields.contains("areas"), "areas field no longer serialized");
+	check(fields.contains("rules") && fields.contains("autoconfig") && fields.contains("automode") && fields.contains("strategy"),
+		"remaining fields are rules, autoconfig, automode and strategy");
+}
+
 int main()
 {
 	testRefresh();
+	testStrategySerialized();
+	testAreasKeyGone();
 	using namespace vsid::bridgeconfig;
 	using Json = nlohmann::json;
 	Snapshot snapshot;
 	snapshot.rules = {{"LFPB",{{"OPPOSING",true}}},{"LFOB",{{"PGEAST",true}}},{"EGKK",{{"ANY:KEY",false}}}};
-	snapshot.areas = {{"EGKK",{{"AREA\"NAME",true}}}};
 	snapshot.states["LFOB"] = {vsid::autoconfig::Status::Matched, "East|quoted\" profile", {}};
 	auto fields = serialize(snapshot);
 	check(Json::parse(fields.at("rules")).at("LFPB").at("OPPOSING") == true, "LFPB published generically");
 	check(Json::parse(fields.at("rules")).at("LFOB").size() == 1, "LFOB publishes actual PGEAST without invented regional rules");
-	check(Json::parse(fields.at("areas")).at("EGKK").at("AREA\"NAME") == true, "arbitrary areas escaped");
 	check(Json::parse(fields.at("autoconfig")).at("LFOB").at("profile") == "East|quoted\" profile", "profiles safely escaped");
 	check(serialize({}).at("rules") == "{}", "empty snapshot explicitly clears inactive airports");
 	vsid::autoconfig::Controller controller;

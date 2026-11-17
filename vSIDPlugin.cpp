@@ -87,6 +87,10 @@ vsid::VSIDPlugin::VSIDPlugin() : EuroScopePlugIn::CPlugIn(EuroScopePlugIn::COMPA
 vsid::VSIDPlugin::~VSIDPlugin()
 {
 	// Unregister provider from Plugin Bridge
+	if (esb_api != nullptr && strategySourceSub_ != nullptr) {
+		esb_api->unsubscribe(strategySourceSub_);
+		strategySourceSub_ = nullptr;
+	}
 	if (esb_api != nullptr && bridgeProvider_ != nullptr) {
 		esb_api->unregister_provider(bridgeProvider_);
 		bridgeProvider_ = nullptr;
@@ -2563,6 +2567,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 		vsid::Logger::log(LogLevel::Debug, std::format("Executing command: [{}] with parameters [{}]", cmd.command, vsid::utils::join(cmd.params)), DebugLevel::Cmd);
 		if (this->handleAutoConfigurationCommand(cmd)) return true;
 		if (this->handleRulesConfigurationCommand(cmd)) return true;
+		if (this->handleStrategyCommand(cmd)) return true;
 
 		/*if (!ControllerMyself().IsController())
 		{
@@ -2577,7 +2582,8 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				"autoconfig on|off|status|reload / autoconfig ICAO auto|manual / "
 				"autoconfig resume all / rules ICAO KEY=on KEY2=off - set existing rules atomically / "
 				"auto [icao] - activate automode for icao(s) - sets force mode if lower atc online / "
-				"area [icao] [areaname] - toggle area(s) for icao / "
+				"strategy ICAO [id|nominal|resume] - show or set the SID strategy / "
+				"assign ICAO WPT=mode ...|clear - per-waypoint strategy overrides / "
 				"rule icao [rulename] - toggle rule(s) for icao or lists rules if no rule is specified / "
 				"rule rulename - toggle rule for any active airport / "
 				"night [icao] - toggle night mode for icao / "
@@ -4834,6 +4840,7 @@ void vsid::VSIDPlugin::UpdateActiveAirports()
 	}
 
 	this->updateAutoConfiguration(false);
+	this->onStrategySourceChanged(); // newly active airports pick up the external strategy
 	vsid::Logger::log(LogLevel::Info, std::format("Airports updated. [{}] active.", this->activeAirports.size()));
 }
 
@@ -4864,6 +4871,7 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 			messageHandler->addGenError(ESB_MISSING_MESSAGE);
 	}
 	else if (bridgeProvider_ == nullptr && !bridgeProviderConflict_) RegisterBridgeProvider();
+	connectStrategySource(Counter);
 	publishBridgeConfiguration();
 
 
@@ -5184,8 +5192,8 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		  "SID assignment Auto per active airport: ICAO=0; or ICAO=1;" },
 		{ "rules", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
 		  "JSON object of active airports and their actual custom-rule booleans" },
-		{ "areas", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
-		  "JSON object of active airports and their actual area booleans" },
+		{ "strategy", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
+		  "JSON object of active airports: strategy id, label, overrides, source and effective waypoint modes" },
 		{ "autoconfig", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
 		  "JSON object of active airports: status enum, profile, detail and manual-override flag" },
 	};
@@ -5193,8 +5201,8 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 	ESB_ProviderDecl decl = {};
 	decl.struct_size = sizeof decl;
 	decl.provider_id = BRIDGE_PROVIDER_ID;
-	decl.schema_major = 1;
-	decl.schema_minor = 1;
+	decl.schema_major = 2;
+	decl.schema_minor = 0;
 	decl.display_name = "vSID";
 	decl.contact = "https://github.com/AlexisBalzano/vSID";
 	decl.fields = fields;
@@ -5220,7 +5228,7 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		bridgeApi_->own_field(bridgeProvider_, BRIDGE_CFL_FIELD, &bridgeCflField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, "automode", &bridgeAutomaticModeField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, "rules", &bridgeRulesField_) != ESB_OK ||
-		bridgeApi_->own_field(bridgeProvider_, "areas", &bridgeAreasField_) != ESB_OK ||
+		bridgeApi_->own_field(bridgeProvider_, "strategy", &bridgeStrategyField_) != ESB_OK ||
 		bridgeApi_->own_field(bridgeProvider_, "autoconfig", &bridgeAutoConfigField_) != ESB_OK) {
 		bridgeApi_->unregister_provider(bridgeProvider_);
 		bridgeProvider_ = nullptr;
@@ -5229,7 +5237,7 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		bridgeCflField_ = ESB_FIELD_NONE;
 		bridgeAutomaticModeField_ = ESB_FIELD_NONE;
 		bridgeRulesField_ = ESB_FIELD_NONE;
-		bridgeAreasField_ = ESB_FIELD_NONE;
+		bridgeStrategyField_ = ESB_FIELD_NONE;
 		bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		return false;
 	}
