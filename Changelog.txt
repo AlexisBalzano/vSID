@@ -1,3 +1,27 @@
+[Changelog v0.16.0]
+>[!WARNING]
+>Airport configs must use the format v2 ("version": 2). v1 files are rejected and the airport is not loaded. Install the v2 airport configs together with this version.
+
+:new: **New Features**
+*	CONF - SID config format v2: "procedures" (ordered entries per exit point), "selection", "runwayGroups", "defaults", "areas" (polygon + runway group) and "strategies" (see README, section "SID configuration v2")
+	* entry conditions: rwy, climbvia, initialClimb (per engine type), engines, equip, wtc, dest, actArrRwy, rule (one or a list), area
+	* "defaultStrategy" sets the strategy active when the airport is first activated in the session (default: nominal)
+*	SID - SID strategies per airport. The mode of each exit point is a runway group, "nearest" (group of the area the aircraft is in) or "default"
+*	CMD - new command ".vsid strategy ICAO [id|nominal|resume]" to show or set the active strategy, or hand the airport back to the external source
+*	CMD - new command ".vsid assign ICAO WPT=mode ...|clear" for per exit point overrides (validated as a whole)
+*	GEN - bridge: new global field "strategy" (active strategy, label, overrides, source and effective modes per active airport, max 65,536 bytes)
+*	CONF - new main config value "strategySource" ("provider/field") to follow a strategy published by another plugin on the bridge
+
+:gear: **Changed Features / Behaviour**
+*	GEN - bridge schema is now 2.0. The global field "areas" is removed
+*	SID - the SID choice follows the entry order of the v2 config instead of "prio"; entries with an active rule come first. "EQUIP" is shown when no SID is left and an entry was only dropped because of the equipment
+*	CMD - ".vsid debug area" is removed (no area debug messages any more)
+
+**REMOVED**
+*	CMD - removed ".vsid area", ".vsid lvp" and ".vsid night" / ".vsid time"
+*	CONF - removed the v1 "sids" format and the SID settings "lvp", "timeFrom", "timeTo", "pilotfiled", "trans", "route", "mtow", "acftType", "engineCount", "wingType", "actDepRwy", "allowDiffNumbers", "prio"
+*	CONF - removed the airport settings "timeMode" and "timezone" and the area settings "active" and "arrAsDep"
+
 [Changelog v0.15.0.1]
 :lady_beetle: **Fixes**
 *	SYNC - fixed watch dog triggering for STUP (one of the missing default ground states). Ground states are now added for proper checks.
