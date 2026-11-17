@@ -84,6 +84,7 @@ namespace vsid::v2
 		if (params.size() == 1 && lower(params[0]) == "clear")
 		{
 			m_assign.clear();
+			m_source = StrategySource::Manual;
 			m_manualOverride = true;
 			return true;
 		}
@@ -97,6 +98,7 @@ namespace vsid::v2
 			staged[wpt] = mode;
 		}
 		m_assign = std::move(staged);
+		m_source = StrategySource::Manual;
 		m_manualOverride = true;
 		return true;
 	}

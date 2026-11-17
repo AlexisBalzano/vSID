@@ -134,6 +134,57 @@ void testExternalAssignRules()
 	check(book.active() == "ranux-dikol-sud", "empty object no change");
 }
 
+void testAssignAfterExternalIsManual()
+{
+	const auto cfg = lfpg();
+	auto book = fresh(cfg);
+	std::string error;
+	check(book.applyExternal(cfg, Json::parse(R"({"strategy":"ranux-dikol-sud"})"), error), "external");
+	check(book.toBridge(cfg)["source"] == "external", "source external");
+	check(book.assign(cfg, { "DIKOL=north" }, error), "assign");
+	check(book.toBridge(cfg)["source"] == "manual" && book.manualOverride(), "assign makes it manual");
+	book.resume();
+	check(book.applyExternal(cfg, Json::parse(R"({"strategy":"ranux-dikol-sud"})"), error), "external again");
+	check(book.toBridge(cfg)["source"] == "external", "external again source");
+	check(book.assign(cfg, { "clear" }, error), "clear");
+	check(book.toBridge(cfg)["source"] == "manual" && book.manualOverride(), "clear makes it manual");
+}
+
+void testExternalStrategyWithAssign()
+{
+	const auto cfg = lfpg();
+	auto book = fresh(cfg);
+	std::string error;
+	check(book.assign(cfg, { "LANVI=north" }, error), "assign");
+	book.resume();
+	check(book.applyExternal(cfg, Json::parse(R"({"strategy":"ranux-dikol-sud","assign":{"PO":"south"}})"), error), "both");
+	check(book.active() == "ranux-dikol-sud", "strategy set");
+	check(book.modeFor(cfg, "PO") == "south", "assign applied");
+	check(book.modeFor(cfg, "LANVI") == "default", "old overrides replaced");
+}
+
+void testExternalNominal()
+{
+	const auto cfg = lfpg();
+	auto book = fresh(cfg);
+	std::string error;
+	check(book.applyExternal(cfg, Json::parse(R"({"strategy":"nominal"})"), error), "nominal");
+	check(book.active().empty() && book.modeFor(cfg, "DIKOL") == "default", "nominal applied");
+	check(book.toBridge(cfg)["source"] == "external", "source external");
+}
+
+void testExternalInvalidWhileManualOverride()
+{
+	const auto cfg = lfpg();
+	auto book = fresh(cfg);
+	std::string error;
+	check(book.setStrategy(cfg, "ranux-dikol-sud", error), "set");
+	check(!book.applyExternal(cfg, Json::parse(R"({"strategy":"inconnue"})"), error), "invalid refused");
+	check(!book.applyExternal(cfg, Json::parse("42"), error), "non-object refused");
+	check(book.active() == "ranux-dikol-sud" && book.manualOverride(), "state unchanged");
+	check(book.toBridge(cfg)["source"] == "manual", "source unchanged");
+}
+
 void testToBridge()
 {
 	const auto cfg = lfpg();
@@ -170,6 +221,10 @@ int main()
 	testManualOverrideBlocksExternal();
 	testExternalInvalidLeavesStateUnchanged();
 	testExternalAssignRules();
+	testAssignAfterExternalIsManual();
+	testExternalStrategyWithAssign();
+	testExternalNominal();
+	testExternalInvalidWhileManualOverride();
 	testToBridge();
 	std::cout << "Strategy tests passed\n";
 	return 0;
