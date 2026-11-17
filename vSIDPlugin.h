@@ -496,7 +496,11 @@ namespace vsid
 		std::string configPath;
 		std::map<std::string, std::map<std::string, bool>> savedSettings;
 		std::map<std::string, vsid::Airport::CustomRulesMap> savedRules;
-		std::map<std::string, vsid::Airport::CustomAreaMap> savedAreas;
+		//************************************
+		// Description: Strategy states kept across airport updates (never cleared, so a deactivated
+		// airport finds its state back when reactivated)
+		//************************************
+		std::map<std::string, vsid::v2::StrategyBook> savedStrategies;
 		std::map<std::string, vsid::Fpln> savedFplnInfo = {};
 		//************************************
 		// Description: Stores requests during airport updates

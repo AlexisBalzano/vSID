@@ -25,6 +25,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "area.h"
 #include "sid.h"
 #include "utils.h"
+#include "sidconfigv2.h"
+#include "strategy.h"
 
 #include <string>
 #include <vector>
@@ -65,13 +67,6 @@ namespace vsid
 		using CustomRulesMap = std::map<std::string, bool, vsid::utils::CICompare>;
 
 		//************************************
-		// Description: Area map with case insensitive compare
-		// first: std::string - area name
-		// second: vsid::Area
-		//************************************
-		using CustomAreaMap = std::map<std::string, vsid::Area, vsid::utils::CICompare>;
-
-		//************************************
 		// Description: Set containing pair of callsign and request time
 		// std::pair first: std::string - callsign
 		// std::pair second: long long - request time
@@ -100,15 +95,18 @@ namespace vsid
 		std::set<std::string> depRwys = {};
 		std::set<std::string> arrRwys = {};
 		CustomRulesMap customRules = {};
-		CustomAreaMap areas = {};
 		//************************************
 		// Description: Stores rwy intersections for intsec menu
 		// Param 1: std::string - rwy
 		// Param 2 (vec): std::string - available intsec for the rwy
 		//************************************
 		std::map<std::string, std::vector<std::string>> intsec = {};
+		//************************************
+		// Description: one vsid::Sid per v2 procedure entry (id = entry id), completed by the sector file
+		//************************************
 		std::vector<vsid::Sid> sids = {};
-		std::vector<vsid::Sid> timeSids = {};
+		vsid::v2::AirportConfig sidConfig = {};
+		vsid::v2::StrategyBook strategy = {};
 		std::string timezone = "";
 		std::map<std::string, int> appSI = {};
 		//bool arrAsDep = false;

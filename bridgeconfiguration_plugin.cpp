@@ -13,8 +13,7 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 	{
 		const auto icao = utils::toupper(airportKey);
 		snapshot.rules[icao] = { airport.customRules.begin(), airport.customRules.end() };
-		auto& areas = snapshot.areas[icao];
-		for (const auto& [name, area] : airport.areas) areas[name] = area.isActive;
+		snapshot.areas[icao] = {}; // v1 areas are gone; the field itself is replaced by the strategy field later
 		const auto automatic = airport.settings.find("auto");
 		if (automatic != airport.settings.end()) snapshot.assignmentAuto[icao] = automatic->second;
 		snapshot.states[icao] = this->autoConfiguration.stateFor(airportKey);
