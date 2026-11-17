@@ -126,7 +126,8 @@ or `default`. An area has no on/off state; it only matters in mode `nearest`.
 
 **Modes.** The mode of an exit point decides the group order:
 * `default` - the order of `selection[point]` (absent: one group with all entries);
-* a group name, e.g. `south` - that group first, then the rest of `selection[point]`;
+* a group name, e.g. `south` - that group first, then the rest of `selection[point]`
+  (absent: the entries of that group first, then the other entries, both in file order);
 * `nearest` - the group of the area the aircraft is in (an area of group `default`
   means `default`; if the aircraft is in several areas, a `default` area wins, then
   the first declared); outside any area, `default`.

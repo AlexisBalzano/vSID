@@ -333,6 +333,67 @@ void testAreaEntryOutsideArea()
 	check(sidOf(cfg, select(cfg, req)) == "B", "nearest without position -> not eligible");
 }
 
+// LANVI without selection: A (26R, south) then B (27L, north) in file order
+AirportConfig lanviWithoutSelection()
+{
+	auto json = fixtures::lfpg();
+	json["selection"].erase("LANVI");
+	return parseOk(json);
+}
+
+void testNoSelectionDefaultIsFileOrder()
+{
+	const auto cfg = lanviWithoutSelection();
+	auto req = request(cfg, "LANVI");
+	check(sidOf(cfg, select(cfg, req)) == "A", "no selection, default -> first declared");
+}
+
+void testNoSelectionGroupModeFirst()
+{
+	const auto cfg = lanviWithoutSelection();
+	auto req = request(cfg, "LANVI");
+	req.mode = "north";
+	const auto r = select(cfg, req);
+	check(sidOf(cfg, r) == "B" && r.rwy == "27L", "no selection, mode north -> north entry first");
+	req.mode = "south";
+	check(sidOf(cfg, select(cfg, req)) == "A", "no selection, mode south -> south entry first");
+	req.mode = "north";
+	req.depRwys = { "26R" };
+	check(sidOf(cfg, select(cfg, req)) == "A", "no selection, north closed -> rest in file order");
+}
+
+void testNoSelectionGroupKeepsFileOrderInside()
+{
+	auto json = fixtures::lfpg();
+	json["selection"].erase("LANVI");
+	json["procedures"]["LANVI"] = Json::parse(R"([
+		{ "sid": "A", "rwy": "26R,26L" },
+		{ "sid": "B", "rwy": "27R" },
+		{ "sid": "C", "rwy": "27L" },
+		{ "sid": "D", "rwy": "26L" }
+	])");
+	const auto cfg = parseOk(json);
+	auto req = request(cfg, "LANVI");
+	req.depRwys = { "27L", "27R", "26R", "26L" };
+	req.mode = "north";
+	check(sidOf(cfg, select(cfg, req)) == "B", "group entries in file order (B before C)");
+	req.depRwys = { "27L", "26R", "26L" };
+	check(sidOf(cfg, select(cfg, req)) == "C", "next group entry when B is closed");
+}
+
+void testNoSelectionNearestResolvesGroup()
+{
+	const auto cfg = lanviWithoutSelection();
+	auto req = request(cfg, "LANVI");
+	req.mode = "nearest";
+	req.position = GeoPoint{ 49.016, 2.54 }; // north area
+	check(sidOf(cfg, select(cfg, req)) == "B", "no selection, nearest in north area -> north entry");
+	req.position = inSouth;
+	check(sidOf(cfg, select(cfg, req)) == "A", "no selection, nearest in south area -> south entry");
+	req.position.reset();
+	check(sidOf(cfg, select(cfg, req)) == "A", "no selection, nearest without position -> file order");
+}
+
 int main()
 {
 	testNominalNorth();
@@ -359,6 +420,10 @@ int main()
 	testAreaEntryInAreaNearest();
 	testAreaEntryNeedsNearest();
 	testAreaEntryOutsideArea();
+	testNoSelectionDefaultIsFileOrder();
+	testNoSelectionGroupModeFirst();
+	testNoSelectionGroupKeepsFileOrderInside();
+	testNoSelectionNearestResolvesGroup();
 	std::cout << "SID engine tests passed\n";
 	return 0;
 }

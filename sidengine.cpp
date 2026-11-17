@@ -173,7 +173,7 @@ namespace vsid::v2
 		}
 
 		struct Candidate { const Entry* entry; std::string rwy; };
-		std::map<std::string, std::vector<Candidate>> byGroup; // "" = implicit single group
+		std::map<std::string, std::vector<Candidate>> byGroup; // "" = no runway groups, or a runway in no group
 		bool equipRejected = false;
 		std::map<std::string, bool> equipRejectedIn;
 
@@ -191,29 +191,43 @@ namespace vsid::v2
 			byGroup[group].push_back({ &e, rwy });
 		}
 
-		std::vector<std::string> order;
-		if (cfg.runwayGroups.empty() || !cfg.selection.contains(req.waypoint)) order = { "" };
-		else order = groupOrder(cfg, req.waypoint, mode);
-		if (!cfg.runwayGroups.empty() && !cfg.selection.contains(req.waypoint))
+		// candidate lists tried in turn, the first non-empty one gives the SID
+		std::vector<std::vector<Candidate>> tiers;
+		if (cfg.runwayGroups.empty())
 		{
-			// no selection for this waypoint: one implicit group holding every runway group
-			std::vector<Candidate> all;
-			for (auto& [g, list] : byGroup) all.insert(all.end(), list.begin(), list.end());
-			std::sort(all.begin(), all.end(), [](const Candidate& a, const Candidate& b) { return a.entry->id < b.entry->id; });
-			byGroup.clear();
-			byGroup[""] = all;
+			tiers.push_back(byGroup[""]);
+			equipRejected = !equipRejectedIn.empty();
+		}
+		else if (!cfg.selection.contains(req.waypoint))
+		{
+			// no selection for this waypoint: declaration order, the entries of the mode's group first
+			const bool groupMode = mode != "default" && cfg.runwayGroups.contains(mode);
+			std::vector<Candidate> first, rest;
+			for (auto& [g, list] : byGroup)
+			{
+				auto& target = groupMode && g == mode ? first : rest;
+				target.insert(target.end(), list.begin(), list.end());
+			}
+			auto byId = [](const Candidate& a, const Candidate& b) { return a.entry->id < b.entry->id; };
+			std::sort(first.begin(), first.end(), byId);
+			std::sort(rest.begin(), rest.end(), byId);
+			tiers.push_back(std::move(first));
+			tiers.push_back(std::move(rest));
 			equipRejected = !equipRejectedIn.empty();
 		}
 		else
 		{
-			for (const auto& g : order) if (equipRejectedIn.contains(g)) equipRejected = true;
+			for (const auto& g : groupOrder(cfg, req.waypoint, mode))
+			{
+				tiers.push_back(byGroup[g]);
+				if (equipRejectedIn.contains(g)) equipRejected = true;
+			}
 		}
 
-		for (const auto& g : order)
+		for (const auto& tier : tiers)
 		{
-			const auto it = byGroup.find(g);
-			if (it == byGroup.end() || it->second.empty()) continue;
-			auto list = it->second;
+			if (tier.empty()) continue;
+			auto list = tier;
 			std::stable_partition(list.begin(), list.end(), [](const Candidate& c) { return !c.entry->rules.empty(); });
 			const Candidate& best = list.front();
 			result.entryId = best.entry->id;
