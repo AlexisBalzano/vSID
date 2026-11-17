@@ -455,6 +455,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 
 	std::vector<std::filesystem::path> files;
 	std::set<std::string> aptConfig;
+	std::set<std::string> rejected; // airports whose config was refused, already logged
 
    /* for (const std::filesystem::path& entry : std::filesystem::recursive_directory_iterator(basePath)) // needs further #evaluate - can cause slow loading
 	{
@@ -489,6 +490,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 						if (!vsid::v2::parseAirport(this->parsedConfig.at(icao), icao, sidConfig, error))
 						{
 							vsid::Logger::log(vsid::LogLevel::Error, std::format("[{}] config v2 rejected: {}", icao, error));
+							rejected.insert(icao);
 							continue;
 						}
 
@@ -649,7 +651,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 		if (aptConfig.contains(it->first)) ++it;
 		else
 		{
-			vsid::Logger::log(vsid::LogLevel::Info, "No config found for: " + it->first);
+			if (!rejected.contains(it->first)) vsid::Logger::log(vsid::LogLevel::Info, "No config found for: " + it->first);
 			it = activeAirports.erase(it);
 		}
 	}

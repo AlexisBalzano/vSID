@@ -146,6 +146,11 @@ void testRejectsV1()
 	check(contains(parseError(json), "version"), "missing version");
 	json["version"] = 1;
 	check(contains(parseError(json), "version"), "version 1");
+	// the plugin log already says "[LFPG] config v2 rejected: <reason>"
+	check(parseError(json).rfind("config version 2 required", 0) == 0, "reason without the ICAO prefix");
+	json["version"] = 2;
+	json["maxInitialClimb"] = "high";
+	check(parseError(json).rfind("malformed value", 0) == 0, "malformed value without the ICAO prefix");
 }
 
 void testRejectsUnknownGroup()

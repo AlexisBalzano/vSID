@@ -98,7 +98,7 @@ Groups: airbus = 14R/32L, other = 14L/32R. `defaultStrategy: nearest`, area `air
 
 ## 8. Rejection of a v1 file
 
-- [ ] Put a v1-format airport file (with the former `sids` array and no `"version": 2`) in the airport config directory and reload (`.vsid reload`). Expected: error message `[ICAO] config v2 rejected: <reason>` in the vSID chat; the airport is not loaded; the other airports still work.
+- [ ] Put a v1-format airport file (with the former `sids` array and no `"version": 2`) in the airport config directory and reload (`.vsid reload`). Expected: error message `[ICAO] config v2 rejected: <reason>` in the vSID chat (the reason does not repeat the ICAO, and no "No config found for" line follows); the airport is not loaded; the other airports still work.
 - [ ] Remove the file and reload: no message.
 
 ## 9. Removed commands

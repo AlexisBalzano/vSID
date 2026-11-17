@@ -376,12 +376,12 @@ namespace vsid::v2
 		}
 		catch (const ParseError& e)
 		{
-			error = icao + ": " + e.what();
+			error = e.what();
 			return false;
 		}
 		catch (const nlohmann::json::exception& e)
 		{
-			error = icao + ": malformed value (" + e.what() + ")";
+			error = std::string("malformed value (") + e.what() + ")";
 			return false;
 		}
 		out = std::move(parsed);
