@@ -42,6 +42,9 @@ namespace vsid
 		None
 	};
 
+	// one slot per DebugLevel, None included (tables are indexed by the enum value)
+	inline constexpr std::size_t debugLevelCount = static_cast<std::size_t>(DebugLevel::None) + 1;
+
 	struct LogMessage {
 		LogLevel level;
 		std::string msg;
@@ -180,10 +183,10 @@ namespace vsid
 		// Method:    getDebugLevel
 		// FullName:  vsid::Logger::getDebugLevel
 		// Access:    public static 
-		// Returns:   std::array<bool, 16>
+		// Returns:   std::array<bool, debugLevelCount>
 		// Qualifier:
 		//************************************
-		inline static std::array<bool, 16> getDebugLevel() { return currentDebugLvl; }
+		inline static std::array<bool, debugLevelCount> getDebugLevel() { return currentDebugLvl; }
 
 		//************************************
 		// Description: Sets up all active debug levels in one string for logging
@@ -316,7 +319,7 @@ namespace vsid
 		static void rotateLogs();
 
 		inline static bool logDevOnly;
-		inline static std::array<bool, 16> currentDebugLvl;
+		inline static std::array<bool, debugLevelCount> currentDebugLvl;
 		inline static std::queue<LogMessage> bgQueue;
 		inline static std::queue<std::string> esQueue;
 		inline static HANDLE fileLockMutex{ NULL };

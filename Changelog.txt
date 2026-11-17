@@ -15,7 +15,7 @@
 :gear: **Changed Features / Behaviour**
 *	GEN - bridge schema is now 2.0. The global field "areas" is removed
 *	SID - the SID choice follows the entry order of the v2 config instead of "prio"; entries with an active rule come first. "EQUIP" is shown when no SID is left and an entry was only dropped because of the equipment
-*	CMD - ".vsid debug area" is removed (no area debug messages any more)
+*	CMD - ".vsid debug area" is removed (no area debug messages any more): "area" is now an unknown debug level and, like any unknown level, switches all debug levels off
 
 **REMOVED**
 *	CMD - removed ".vsid area", ".vsid lvp" and ".vsid night" / ".vsid time"
