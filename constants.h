@@ -123,8 +123,6 @@ const std::string ERROR_ATC_ICAOSPLIT = "E070";
 
 const std::string ERROR_REQ_RWYSPLIT = "E080";
 
-const std::string ERROR_TIME_ZONE = "E090";
-
 // other values
 
 const double SYNC_TIMEOUT_SECONDS = 0.5;

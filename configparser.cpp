@@ -523,7 +523,6 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 						aptInfo.allRwys = vsid::utils::split(this->parsedConfig.at(icao).value("runways", ""), ',');
 						aptInfo.transAlt = this->parsedConfig.at(icao).value("transAlt", 0);
 						aptInfo.maxInitialClimb = this->parsedConfig.at(icao).value("maxInitialClimb", 0);
-						aptInfo.timezone = this->parsedConfig.at(icao).value("timezone", "Etc/UTC");
 						aptInfo.requests["clearance"] = {};
 						aptInfo.requests["startup"] = {};
 						aptInfo.requests["pushback"] = {};
@@ -585,10 +584,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 						}
 						else
 						{
-							aptInfo.settings = { {"lvp", false},
-													{"time", this->parsedConfig.at(icao).value("timeMode", false)},
-													{"auto", false}
-							};
+							aptInfo.settings = { {"auto", false} };
 						}
 
 						// saved requests - if not found base settings already in general settings
@@ -613,13 +609,7 @@ void vsid::ConfigParser::loadAirportConfig(std::map<std::string, vsid::Airport, 
 							newSid.id = std::to_string(entry.id);
 							newSid.rwys = entry.rwys;
 							newSid.climbvia = entry.climbvia;
-							newSid.equip = entry.equip;
-							newSid.wtc = entry.wtc;
-							newSid.dest = entry.dest;
 							newSid.initialClimb = entry.initialClimb.at('J');
-							newSid.engineType = entry.engines;
-							newSid.customRule = entry.rules.empty() ? "" : entry.rules.front();
-							newSid.prio = 1;
 							aptInfo.sids.push_back(newSid);
 
 							vsid::Logger::log(vsid::LogLevel::Debug, std::format("[{}] [{} (ID: {})] rwys: {} | initialClimb: {} | climb via: {}",

@@ -35,7 +35,7 @@ namespace vsid::v2
 		bool equipFailure = false;                // "EQUIP": an entry was only dropped because of equipment
 	};
 
-	// same algorithm as vsid::Area::inside (area.cpp)
+	// ray casting, same algorithm as the former v1 vsid::Area::inside
 	bool insidePolygon(const std::vector<GeoPoint>& polygon, const GeoPoint& p);
 	// "default" wins, otherwise the group of the first declared area containing p
 	std::optional<std::string> areaGroupAt(const AirportConfig& cfg, const GeoPoint& p);

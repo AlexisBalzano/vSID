@@ -22,7 +22,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
 
-#include "area.h"
+#include "include/es/EuroScopePlugIn.h"
 #include "sid.h"
 #include "utils.h"
 #include "sidconfigv2.h"
@@ -108,9 +108,7 @@ namespace vsid
 		std::vector<vsid::Sid> sids = {};
 		vsid::v2::AirportConfig sidConfig = {};
 		vsid::v2::StrategyBook strategy = {};
-		std::string timezone = "";
 		std::map<std::string, int> appSI = {};
-		//bool arrAsDep = false;
 		int transAlt = 0;
 		int maxInitialClimb = 0;
 		bool autoHandoff = true;
@@ -186,13 +184,10 @@ namespace vsid
 		// Returns:   bool
 		// Qualifier: const
 		// Parameter: const std::string & rwy - the runway to check
-		// Parameter: bool arrAsDep - if arr runways should count as dep rwy
 		//************************************
-		inline bool isDepRwy(const std::string& rwy, bool arrAsDep = false) const
+		inline bool isDepRwy(const std::string& rwy) const
 		{
-			if (depRwys.contains(rwy)) return true;
-			else if (arrAsDep == true && arrRwys.contains(rwy)) return true;
-			else return false;
+			return depRwys.contains(rwy);
 		}
 	};
 

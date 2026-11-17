@@ -34,7 +34,6 @@ namespace vsid
 		Req,
 		Conf,
 		Rwy,
-		Area,
 		Ese,
 		Gen,
 		Func,
@@ -250,7 +249,6 @@ namespace vsid
 			case DebugLevel::Req: return "REQ";
 			case DebugLevel::Conf: return "CONF";
 			case DebugLevel::Rwy: return "RWY";
-			case DebugLevel::Area: return "AREA";
 			case DebugLevel::Ese: return "ESE";
 			case DebugLevel::Gen: return "GEN";
 			case DebugLevel::Func: return "FUNC";
@@ -280,7 +278,6 @@ namespace vsid
 			if (vsid::utils::svEqualCi(lvl, "req")) return DebugLevel::Req;
 			if (vsid::utils::svEqualCi(lvl, "conf")) return DebugLevel::Conf;
 			if (vsid::utils::svEqualCi(lvl, "rwy")) return DebugLevel::Rwy;
-			if (vsid::utils::svEqualCi(lvl, "area")) return DebugLevel::Area;
 			if (vsid::utils::svEqualCi(lvl, "ese")) return DebugLevel::Ese;
 			if (vsid::utils::svEqualCi(lvl, "gen")) return DebugLevel::Gen;
 			if (vsid::utils::svEqualCi(lvl, "func")) return DebugLevel::Func;

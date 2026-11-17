@@ -116,7 +116,6 @@ set(SOURCES
     autoconfiguration.cpp
     autoconfiguration_plugin.cpp
     bridgeconfiguration_plugin.cpp
-    area.cpp
     configparser.cpp
     crashhandler.cpp
     eseparser.cpp
@@ -129,7 +128,6 @@ set(SOURCES
     sid.cpp
     strategy_plugin.cpp
     syncManager.cpp
-    timeHandler.cpp
     utils.cpp
     versionchecker.cpp
     vSID.cpp

@@ -4,7 +4,6 @@
 #include "flightplan.h"
 #include "timeHandler.h"
 #include "messageHandler.h"
-#include "area.h"
 #include "sidengine.h"
 #include "Psapi.h"
 
@@ -2586,8 +2585,6 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				"assign ICAO WPT=mode ...|clear - per-waypoint strategy overrides / "
 				"rule icao [rulename] - toggle rule(s) for icao or lists rules if no rule is specified / "
 				"rule rulename - toggle rule for any active airport / "
-				"night [icao] - toggle night mode for icao / "
-				"lvp [icao] - toggle lvp ops for icao / "
 				"req icao - lists request list entries / "
 				"req icao reset [listname] - resets all request lists or specified list / "
 				"reload [ese] - reloads the main and airport configs or the ese file / "
@@ -2760,100 +2757,6 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				}
 			}
 			
-			return true;
-		}
-
-		if (vsid::utils::svEqualCi(cmd.command, "lvp"))
-		{
-			if (cmd.params.empty()) // list LVP status for active airports
-			{
-				if (this->activeAirports.empty()) vsid::Logger::log(LogLevel::Info, "No active airports.");
-
-				bool first = true;
-				std::string lvpList;
-
-				for (const auto& [icao, airport] : this->activeAirports)
-				{
-					if (!first) lvpList += " | ";
-
-					std::format_to(std::back_inserter(lvpList), "[{}] LVP [{}]", icao, airport.settings.at("lvp") ? "ON" : "OFF");
-					first = false;
-				}
-				vsid::Logger::log(LogLevel::Info, lvpList);
-			}
-			else
-			{
-				bool lvpChanged = false;
-				bool first = true;
-				std::string lvpList;
-				for (std::string_view param : cmd.params)
-				{
-					if(!first) lvpList += " | ";
-
-					if (auto it = this->activeAirports.find(param); it != this->activeAirports.end())
-					{
-						auto& lvpStatus = it->second.settings["lvp"];
-						lvpStatus = !lvpStatus;
-						lvpChanged = true;
-
-						std::format_to(std::back_inserter(lvpList), "[{}] LVP [{}]", param, lvpStatus ? "ON" : "OFF");
-					}
-					else
-						std::format_to(std::back_inserter(lvpList), "[{}] not in active airports", param);
-
-					first = false;
-				}
-
-				vsid::Logger::log(LogLevel::Info, lvpList);
-
-				if (lvpChanged) this->UpdateActiveAirports();
-			}
-			return true;
-		}
-
-		if (vsid::utils::svEqualCi(cmd.command, "night") || vsid::utils::svEqualCi(cmd.command, "time"))
-		{
-			std::string timeList;
-			bool first = true;
-
-			if (cmd.params.empty())
-			{
-				if (this->activeAirports.empty()) vsid::Logger::log(LogLevel::Info, "No active airports.");
-
-				for (const auto& [icao, airport] : this->activeAirports)
-				{
-					if (!first) timeList += " | ";
-
-					std::format_to(std::back_inserter(timeList), "[{}] Time [{}]", icao, airport.settings.at("time") ? "ON" : "OFF");
-				}
-				vsid::Logger::log(LogLevel::Info, timeList);
-			}
-			else
-			{
-				bool timeChanged = false;
-
-				for (const auto& param : cmd.params)
-				{
-					if (auto it = this->activeAirports.find(param); it != this->activeAirports.end())
-					{
-						if (!first) timeList += " | ";
-
-						auto& timeStatus = it->second.settings["time"];
-						timeStatus = !timeStatus;
-						timeChanged = true;
-
-						std::format_to(std::back_inserter(timeList), "[{}] Time [{}]", param, timeStatus ? "ON" : "OFF");
-					}
-					else
-						std::format_to(std::back_inserter(timeList), "[{}] not in active airports", param);
-
-					first = false;
-				}
-
-				vsid::Logger::log(LogLevel::Info, timeList);
-
-				if (timeChanged) this->UpdateActiveAirports();
-			}
 			return true;
 		}
 
@@ -3386,7 +3289,7 @@ bool vsid::VSIDPlugin::OnCompileCommand(const char* sCommandLine)
 				this->autoConfigurationLoadAttempted = false;
 
 				// Re-read airport configs (and the Auto configuration) from disk. Live rule,
-				// setting, area and request states are preserved like any airport update.
+				// setting, strategy and request states are preserved like any airport update.
 				vsid::Logger::log(LogLevel::Info, "Reloading airport configs...");
 				this->UpdateActiveAirports();
 
