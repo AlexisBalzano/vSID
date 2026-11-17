@@ -37,8 +37,9 @@ def _write_cases(path, cases):
 
 
 def _read_results(path):
-	"""{icao: (cases, ok, accepted, failed)} and {icao: [(count, reason)]} from configcases_test output."""
-	totals, reasons = {}, {}
+	"""From configcases_test output: {icao: (cases, ok, accepted, failed)}, {icao: [(count, reason)]}
+	and {(icao, rule label): cases matched}."""
+	totals, reasons, hits = {}, {}, {}
 	icao = None
 	with open(path, encoding="utf-8") as f:
 		for line in f:
@@ -50,7 +51,10 @@ def _read_results(path):
 			m = re.match(r"^\s+accepted (\d+): (.*)$", line.rstrip("\n"))
 			if m and icao:
 				reasons.setdefault(icao, []).append((int(m.group(1)), m.group(2)))
-	return totals, reasons
+			m = re.match(r"^\s+rule (\S+) matched (\d+)$", line.rstrip("\n"))
+			if m and icao:
+				hits[(icao, m.group(1))] = int(m.group(2))
+	return totals, reasons, hits
 
 
 def report_markdown(rows, notes, accepted, results):
@@ -60,21 +64,30 @@ def report_markdown(rows, notes, accepted, results):
 		"cases (`tests/configcases_test.cpp`); the differences accepted on purpose are listed in "
 		"`tools/vsid_v2/accepted_differences.json`.", ""]
 
-	nav = [(icao, rule) for icao, rules in accepted.items() if not icao.startswith("_")
-		for rule in rules if rule["reason"].startswith("nav decision")]
+	nav = {}   # (icao, reason) -> [(label, rule)], file order
+	for icao, rules in accepted.items():
+		if icao.startswith("_") or icao == "*":
+			continue
+		for i, rule in enumerate(rules):
+			if rule["reason"].startswith("nav decision"):
+				nav.setdefault((icao, rule["reason"]), []).append((f"{icao}#{i}", rule))
 	if nav:
 		lines += ["## Differences to settle with the nav", "",
 			"The v2 config gives another SID than v1 on these cases. Each one comes from a v1 config anomaly or from "
-			"variants of equal `prio` that v1 separates by reading order only. Fixing the v1 config, or keeping the "
-			"v2 behaviour, is up to the nav.", ""]
-		for icao, rule in nav:
-			where = ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in rule["match"].items())
-			count = ""
-			for n, reason in results[1].get(icao, []):
-				if reason == rule["reason"]:
-					count = f" ({n} cases)"
-			lines.append(f"- **{icao}** {rule['reason'][len('nav decision: '):]}{count}  \n  cases: `{where}`")
+			"variants of equal `prio` that v1 separates by reading order only (each accepted case is checked by "
+			"`python3 -m vsid_v2.explain`). Fixing the v1 config, or keeping the v2 behaviour, is up to the nav.", ""]
+		hits = results[2]
+		for (icao, reason), rules in nav.items():
+			total = sum(hits.get((icao, label), 0) for label, _ in rules)
+			count = f" ({total} cases)" if hits else ""
+			lines.append(f"- **{icao}** {reason[len('nav decision: '):]}{count}")
+			for label, rule in rules:
+				where = ", ".join(f"{k}={json.dumps(v, ensure_ascii=False)}" for k, v in rule["match"].items())
+				n = f"{hits.get((icao, label), 0)}: " if hits else ""
+				lines.append(f"  - {n}`{where}`")
 		lines.append("")
+	for icao, text in accepted.get("_notes", {}).items():
+		lines += [f"### Options for {icao}", "", text, ""]
 
 	general = [rule for rule in accepted.get("*", [])]
 	if general:
@@ -126,7 +139,7 @@ def main(argv=None):
 	os.makedirs(args.cases, exist_ok=True)
 	with open(ACCEPTED, encoding="utf-8") as f:
 		accepted = json.load(f)
-	results = _read_results(args.results) if args.results else ({}, {})
+	results = _read_results(args.results) if args.results else ({}, {}, {})
 
 	rows, notes = [], []
 	for name in sorted(os.listdir(args.src)):

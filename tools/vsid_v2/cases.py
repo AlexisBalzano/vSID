@@ -25,28 +25,33 @@ def _sense(rwy):
 
 
 def runway_configurations(ap, v2):
-	"""Active departure runways: one configuration per direction from the runway groups;
-	without groups each runway alone, each direction with parallel runways, then all."""
+	"""Active departure runways as (main, extra) lists of configurations.
+
+	With runway groups: main = one configuration per direction from the group runways, extra = each
+	runway alone (one runway closed: the group fallback). Without groups: main = each runway alone,
+	each direction with parallel runways, then all runways; no extra."""
 	runways = split_csv(ap.data.get("runways", ""))
 	groups = v2.get("runwayGroups", {})
-	configs = []
+	main, extra = [], []
 
-	def add(rwys):
-		if rwys and rwys not in configs:
-			configs.append(rwys)
+	def add(target, rwys):
+		if rwys and rwys not in main and rwys not in extra:
+			target.append(rwys)
 
 	if groups:
 		for sense in (0, 1):
-			add([r for g in groups.values() for r in g if _sense(r) == sense])
+			add(main, [r for g in groups.values() for r in g if _sense(r) == sense])
+		for r in runways:
+			add(extra, [r])
 	else:
 		for r in runways:
-			add([r])
+			add(main, [r])
 		for sense in (0, 1):
 			same = [r for r in runways if _sense(r) == sense]
 			if len(same) > 1:
-				add(same)
-		add(runways)
-	return configs
+				add(main, same)
+		add(main, runways)
+	return main, extra
 
 
 def _centroid(points):
@@ -101,14 +106,13 @@ def destinations(ap):
 	return cited + [OTHER_DEST]
 
 
-def dimensions(ap, v2):
+def dimensions(ap, v2, configs):
 	waypoints = []
 	for v in ap.variants:
 		if v.waypoint and v.waypoint not in waypoints:
 			waypoints.append(v.waypoint)
 	area_states = [False, True] if ap.areas else [False]
-	return [waypoints, runway_configurations(ap, v2), rule_states(ap), ENGINES, EQUIPMENT, WTCS, destinations(ap),
-		positions(ap), area_states]
+	return [waypoints, configs, rule_states(ap), ENGINES, EQUIPMENT, WTCS, destinations(ap), positions(ap), area_states]
 
 
 def _case(values):
@@ -131,24 +135,33 @@ def _case(values):
 	}
 
 
-def generate(ap, v2):
-	"""Cases of one airport with "expect" = select_v1, at most MAX_CASES (fixed seed sampling)."""
-	dims = dimensions(ap, v2)
+def _block(dims, limit, rng):
+	"""Up to limit value tuples of the product of dims, all of them or a sorted sample."""
 	total = 1
 	for d in dims:
 		total *= len(d)
-	if total > MAX_CASES:
-		indices = sorted(random.Random(SEED).sample(range(total), MAX_CASES))
-	else:
-		indices = range(total)
-
-	cases = []
+	indices = range(total) if total <= limit else sorted(rng.sample(range(total), limit))
 	for index in indices:
 		values = []
 		for d in reversed(dims):
 			index, i = divmod(index, len(d))
 			values.append(d[i])
-		c = _case(list(reversed(values)))
-		c["expect"] = select_v1(ap, c)
-		cases.append(c)
+		yield list(reversed(values))
+
+
+def generate(ap, v2):
+	"""Cases of one airport with "expect" = select_v1, at most MAX_CASES (fixed seed sampling).
+
+	The main runway configurations come first (sampled only if they alone exceed the cap); the
+	extra ones fill what is left of the cap."""
+	main, extra = runway_configurations(ap, v2)
+	rng = random.Random(SEED)
+	cases = []
+	for configs in (main, extra):
+		if not configs or len(cases) >= MAX_CASES:
+			continue
+		for values in _block(dimensions(ap, v2, configs), MAX_CASES - len(cases), rng):
+			c = _case(values)
+			c["expect"] = select_v1(ap, c)
+			cases.append(c)
 	return cases

@@ -8,6 +8,7 @@ import unittest
 
 from vsid_v2.v1model import load_v1, select_v1
 from vsid_v2.convert import convert
+from vsid_v2 import cases as cases_module
 from vsid_v2.cases import MAX_CASES, generate
 from vsid_v2.__main__ import main
 
@@ -48,9 +49,10 @@ class GenerateTest(unittest.TestCase):
 			self.assertEqual(c["expect"], select_v1(ap, inputs))
 		# the v2 mode follows the v1 area state
 		self.assertEqual({(c["areasActive"], c["mode"]) for c in cases}, {(False, "default"), (True, "nearest")})
-		# one runway configuration per direction, from the runway groups
+		# one runway configuration per direction from the runway groups, then each runway alone
+		singles = {frozenset({r}) for r in ap.data["runways"].split(",")}
 		self.assertEqual({frozenset(c["depRwys"]) for c in cases},
-			{frozenset({"09L", "09R", "08R", "08L"}), frozenset({"27L", "27R", "26R", "26L"})})
+			{frozenset({"09L", "09R", "08R", "08L"}), frozenset({"27L", "27R", "26R", "26L"})} | singles)
 		self.assertEqual({c["engine"] for c in cases}, {"J", "P", "T", "E"})
 		self.assertEqual({c["wtc"] for c in cases}, {"M", "L"})
 		# the centroid of each area, then no position
@@ -58,6 +60,21 @@ class GenerateTest(unittest.TestCase):
 		self.assertEqual(len(positions), 3)
 		self.assertIn("null", positions)
 		self.assertTrue(any(c["expect"] and c["expect"].get("sid") for c in cases))
+
+	def test_main_configurations_kept_whole_under_the_cap(self):
+		# grouped airport over the cap: every direction case is kept, single runways fill the rest
+		ap, v2 = fixture("lfpg_dikol_lgl.json")
+		saved = cases_module.MAX_CASES
+		try:
+			full = generate(ap, v2)
+			main = [c for c in full if len(c["depRwys"]) > 1]
+			cases_module.MAX_CASES = len(main) + 10
+			capped = generate(ap, v2)
+		finally:
+			cases_module.MAX_CASES = saved
+		self.assertEqual(len(capped), len(main) + 10)
+		self.assertEqual(capped[:len(main)], main)
+		self.assertTrue(all(len(c["depRwys"]) == 1 for c in capped[len(main):]))
 
 	def test_runway_configurations_without_groups(self):
 		ap, v2 = fixture("lfpo_tie.json")

@@ -163,7 +163,9 @@ def convert(ap):
 				# v1 has this entry only as area variants: v2 keeps the condition (mode nearest, inside the area)
 				for v in e.variants:
 					for a in split_csv(v.area):
-						if a in area_names and area_names[a] not in e.areas:
+						if a not in area_names:
+							note(f"unknown area {a} of {e.waypoint} {v.name} ignored (v1 never matches it)")
+						elif area_names[a] not in e.areas:
 							e.areas.append(area_names[a])
 				note(f"area-only entry: {e.waypoint} {'/'.join(v.name for v in e.variants)} ({','.join(e.rwys)}) "
 					f"only applies inside area {','.join(e.areas)}, kept as an area entry in v2")
@@ -184,7 +186,6 @@ def convert(ap):
 			if any(c not in ENGINES for v in e.variants for c in v.engine_type):
 				note(f"engine types other than J, P, T ignored: {e.label()}")
 
-	_report_ties(by_point, note)
 	for entries in by_point.values():
 		split = {}
 		for e in entries:
@@ -231,6 +232,8 @@ def convert(ap):
 				for g in {group_of[r] for r in e.rwys}:
 					ranks[g] = min(ranks.get(g, rank), rank)
 			selection[waypoint] = sorted(ranks, key=lambda g: ranks[g])
+
+	_report_ties(by_point, group_of, selection, note)
 
 	# defaults
 	all_entries = [e for entries in by_point.values() for e in entries]
@@ -335,7 +338,39 @@ def _emit(e, eff_equip, eff_climb):
 	return out
 
 
-def _report_ties(by_point, note):
+def _tie_outcome(waypoint, found, entries, owner, group_of, selection):
+	"""What v1 and v2 choose among tied variants without rule, all their runways active, per engine type."""
+	position = {id(e): i for i, e in enumerate(entries)}
+	order = selection.get(waypoint, [])
+
+	def v2_rank(v):
+		e = owner[id(v)]
+		group = group_of.get(e.rwys[0])
+		return (order.index(group) if group in order else len(order)), position[id(e)]
+
+	outcomes = {}
+	for eng in ENGINES:
+		candidates = [v for v in found if not v.rule and eng in _engines(v)]
+		if len({owner[id(v)].rwys[0] for v in candidates}) < 2:
+			continue
+		v1 = max(candidates, key=lambda v: v.order)
+		v2 = min(candidates, key=v2_rank)
+		outcomes.setdefault((v1.name, v1.rwys[0], v2.name, v2.rwys[0]), []).append(eng)
+	if not outcomes:
+		return "v1 takes the variant read last; check with the nav"
+	if all(v1 == v2 for v1, _, v2, _ in outcomes):
+		return "v1 takes the variant read last, same choice in v2 (entries ordered by prio, then last read first)"
+	parts = []
+	for (v1, r1, v2, r2), engines in outcomes.items():
+		label = ", ".join(engines)
+		if v1 == v2:
+			parts.append(f"for {label} v1 and v2 take {v1} ({r1})")
+		else:
+			parts.append(f"for {label} v1 takes {v1} ({r1}), v2 takes {v2} ({r2})")
+	return "; ".join(parts) + " (v1: variant read last, v2: runway group order of selection); to settle with the nav"
+
+
+def _report_ties(by_point, group_of, selection, note):
 	"""v1 equal prio between runways, and rule variants v1 and v2 do not rank alike."""
 	for waypoint, entries in by_point.items():
 		owner = {id(v): e for e in entries for v in e.variants}
@@ -366,8 +401,8 @@ def _report_ties(by_point, note):
 			for v in sorted(found.values(), key=lambda v: v.order):
 				by_rwy.setdefault(",".join(v.rwys), []).append(v.name)
 			listing = ", ".join(f"{rwys} [{' '.join(names)}]" for rwys, names in by_rwy.items())
-			note(f"prio tie: {waypoint} at prio {prio} across runways {listing}; v1 takes the variant read last, "
-				f"v2 keeps the v1 reading order; to settle with the nav")
+			outcome = _tie_outcome(waypoint, list(found.values()), entries, owner, group_of, selection)
+			note(f"prio tie: {waypoint} at prio {prio} across runways {listing}; {outcome}")
 
 
 def main(argv):

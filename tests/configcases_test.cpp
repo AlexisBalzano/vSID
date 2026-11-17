@@ -134,6 +134,38 @@ namespace
 			+ " mode=" + c.value("mode", std::string("default"));
 	}
 
+	struct Rule
+	{
+		std::string label;   // "<key>#<index>" in accepted_differences.json
+		const Json* match;
+		std::string reason;
+		bool everyAirport;   // under "*": may match no case of a given airport
+		int hits = 0;
+	};
+
+	// rules of one airport: "*" first, then its own; false with a message if a rule is malformed
+	bool rulesOf(const Json& accepted, const std::string& icao, std::vector<Rule>& out, std::string& error)
+	{
+		for (const std::string& key : { std::string("*"), icao })
+		{
+			if (!accepted.contains(key)) continue;
+			const Json& list = accepted.at(key);
+			if (!list.is_array()) { error = "accepted differences: '" + key + "' must be a list of rules"; return false; }
+			for (size_t i = 0; i < list.size(); ++i)
+			{
+				const Json& r = list.at(i);
+				const std::string label = key + "#" + std::to_string(i);
+				if (!r.is_object() || !r.contains("match") || !r.at("match").is_object() || !r.contains("reason") || !r.at("reason").is_string())
+				{
+					error = "accepted differences: rule " + label + " needs a 'match' object and a 'reason' string";
+					return false;
+				}
+				out.push_back({ label, &r.at("match"), r.at("reason").get<std::string>(), key == "*" });
+			}
+		}
+		return true;
+	}
+
 	const char* equipReason = "EQUIP flag only: v2 flags EQUIP when an entry was dropped only for its equipment (spec 4.3)";
 }
 
@@ -157,9 +189,8 @@ int main(int argc, char** argv)
 		std::string error;
 		if (!parseAirport(config[icao], icao, cfg, error)) { std::cerr << "Parse error: " << error << '\n'; return 2; }
 
-		std::vector<const Json*> rules;
-		for (const char* key : { "*", icao.c_str() })
-			if (accepted.contains(key)) for (const auto& r : accepted[key]) rules.push_back(&r);
+		std::vector<Rule> rules;
+		if (!rulesOf(accepted, icao, rules, error)) { std::cerr << error << '\n'; return 2; }
 
 		int ok = 0, failed = 0;
 		std::map<std::string, int> acceptedBy;
@@ -173,15 +204,15 @@ int main(int argc, char** argv)
 			++index;
 			if (expect == got) { ++ok; continue; }
 
-			std::string reason;
+			std::string reason, label;
 			if ((expect == "-" || expect == "EQUIP") && (got == "-" || got == "EQUIP")) reason = equipReason;
 			else
 			{
 				Json subject = c;
 				subject["expect"] = expect;
 				subject["got"] = got;
-				for (const Json* r : rules)
-					if (matches((*r)["match"], subject)) { reason = (*r)["reason"].get<std::string>(); break; }
+				for (Rule& r : rules)
+					if (matches(*r.match, subject)) { reason = r.reason; label = r.label; ++r.hits; break; }
 			}
 			if (reason.empty())
 			{
@@ -192,13 +223,23 @@ int main(int argc, char** argv)
 			if (!acceptedBy.contains(reason)) acceptedOrder.push_back(reason);
 			++acceptedBy[reason];
 			if (verbose && reason != equipReason)
-				details.push_back("  ~#" + std::to_string(index - 1) + " " + describe(c) + " expect=" + expect + " got=" + got + " [" + reason.substr(0, 40) + "]");
+				details.push_back("  ~#" + std::to_string(index - 1) + " " + describe(c) + " expect=" + expect + " got=" + got + " [" + label + "]");
 		}
 
 		int acceptedCount = 0;
 		for (const auto& [reason, n] : acceptedBy) acceptedCount += n;
 		std::cout << icao << " cases=" << airportCases.size() << " ok=" << ok << " accepted=" << acceptedCount << " failed=" << failed << '\n';
 		for (const auto& reason : acceptedOrder) std::cout << "  accepted " << acceptedBy[reason] << ": " << reason << '\n';
+		for (const Rule& r : rules)
+		{
+			if (r.everyAirport && r.hits == 0) continue;
+			std::cout << "  rule " << r.label << " matched " << r.hits << '\n';
+			if (r.hits == 0)
+			{
+				std::cout << "  STALE rule " << r.label << " matches no case: " << r.reason << '\n';
+				allPassed = false;
+			}
+		}
 		const size_t limit = verbose ? failures.size() : 40;
 		const size_t shown = failures.size() < limit ? failures.size() : limit;
 		for (size_t i = 0; i < shown; ++i) std::cout << failures[i] << '\n';

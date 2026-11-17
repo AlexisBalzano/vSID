@@ -90,6 +90,11 @@ class ConvertTest(unittest.TestCase):
 		self.assertEqual([(e["sid"], e["rwy"]) for e in entries_of(ap, "AMOLO")],
 			[("B", "32R"), ("B", "32L"), ("H", "14R"), ("A", "14R"), ("H", "14L"), ("A", "14L")])
 		self.assertTrue(any("prio tie" in line and "H2" in line and "H3" in line for line in report))
+		# measured on the replay: with 14L and 14R active v1 gives 14R (H3, read last), v2 14L (group other first)
+		tie = next(line for line in report if line.startswith("LFBO: prio tie: AMOLO"))
+		self.assertIn("for P, T v1 takes H3 (14R), v2 takes H2 (14L)", tie)
+		self.assertIn("to settle with the nav", tie)
+		self.assertNotIn("keeps the v1 reading order", tie)
 		self.assertTrue(any("area-only entry" in line and "A1" in line for line in report))
 
 	def test_lfbo_area_only_entry(self):
@@ -138,6 +143,9 @@ class ConvertTest(unittest.TestCase):
 	def test_lfpo_prio_tie(self):
 		_, report = converted("lfpo_tie.json")
 		self.assertTrue(any("prio tie" in line and "ATREX" in line for line in report))
+		# without runway groups v2 lists the variant v1 reads last first: same choice
+		tie = next(line for line in report if "prio tie: ATREX" in line)
+		self.assertIn("same choice in v2", tie)
 
 	def test_output_parses_in_cpp_shape(self):
 		for name in ("lfpg_dikol_lgl.json", "lfbo_amolo.json", "lfpo_tie.json", "lfpn_rules.json", "anomalies.json"):
