@@ -1,0 +1,29 @@
+{
+	"LFQQ": {
+		"elevation": 157,
+		"runways": "08,26,02,20",
+		"transAlt": 5000,
+		"maxInitialClimb": 7000,
+		"sids": {
+			"TINOT": {
+				"R": {
+					"1": { "rwy": "02", "initial": 7000, "prio": 1, "actArrRwy": { "all": "02" } }
+				},
+				"K": {
+					"1": { "rwy": "20", "initial": 7000, "prio": 1, "actArrRwy": { "allow": { "all": "20" } } }
+				}
+			},
+			"KERIT": {
+				"Q": {
+					"1": { "rwy": "26", "initial": 7000, "prio": 2, "dest": { "LFMN,LFMD LFTZ": true } }
+				},
+				"W": {
+					"1": { "rwy": "20", "initial": 7000, "prio": 2 }
+				}
+			}
+		},
+		"CMB": {
+			"E": { "1": { "rwy": "08", "initial": 7000, "prio": 1 } }
+		}
+	}
+}
