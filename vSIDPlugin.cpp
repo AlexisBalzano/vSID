@@ -4872,6 +4872,11 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 	}
 	else if (bridgeProvider_ == nullptr && !bridgeProviderConflict_) RegisterBridgeProvider();
 	connectStrategySource(Counter);
+	if (this->strategySourcePending_)
+	{
+		this->strategySourcePending_ = false;
+		this->onStrategySourceChanged();
+	}
 	publishBridgeConfiguration();
 
 

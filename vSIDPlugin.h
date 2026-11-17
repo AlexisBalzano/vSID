@@ -413,9 +413,14 @@ namespace vsid
 		//************************************
 		std::set<std::string> applyStrategySource();
 		//************************************
-		// Description: Bridge change callback target: apply, then publish and refresh what changed
+		// Description: Apply the external value, then publish and refresh what changed. Never called
+		// from the bridge callback (see markStrategySourceChanged)
 		//************************************
 		void onStrategySourceChanged();
+		//************************************
+		// Description: Bridge change callback: only flags the change, consumed by OnTimer
+		//************************************
+		void markStrategySourceChanged() { this->strategySourcePending_ = true; }
 
 		//************************************
 		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
@@ -593,6 +598,7 @@ namespace vsid
 		ESB_Sub* strategySourceSub_ = nullptr;
 		int strategySourceNextAttempt_ = 0;              // OnTimer counter of the next resolve attempt
 		bool strategySourceMissingLogged_ = false;       // "not found" said once per name
+		bool strategySourcePending_ = false;             // source changed; applied by the next OnTimer
 		std::set<std::size_t> strategySourceWarnings_;   // hashes of invalid contents already warned about
 
 		// #dev scratchpad storage

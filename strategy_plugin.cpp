@@ -8,9 +8,12 @@ namespace
 {
 	constexpr int StrategySourceRetrySeconds = 30;
 
+	// The bridge calls this synchronously inside the publisher's write, which may itself be nested in
+	// one of vSID's own writes (refresh -> set_ac -> a subscriber writes the source). Applying here would
+	// re-enter the refresh while "processed" is iterated, so only flag it; OnTimer applies it.
 	void __cdecl strategySourceChanged(ESB_FieldId, ESB_Aircraft, void* user)
 	{
-		static_cast<vsid::VSIDPlugin*>(user)->onStrategySourceChanged();
+		static_cast<vsid::VSIDPlugin*>(user)->markStrategySourceChanged();
 	}
 
 	std::string strategyLabel(const vsid::Airport& airport)
@@ -103,6 +106,7 @@ void vsid::VSIDPlugin::connectStrategySource(int counter)
 		this->strategySourceNextAttempt_ = 0;
 		this->strategySourceMissingLogged_ = false;
 		this->strategySourceWarnings_.clear();
+		this->strategySourcePending_ = false;
 	}
 	if (this->strategySourceName_.empty() || this->bridgeApi_ == nullptr || this->strategySourceSub_ != nullptr) return;
 	if (counter < this->strategySourceNextAttempt_) return;
@@ -143,6 +147,18 @@ std::set<std::string> vsid::VSIDPlugin::applyStrategySource()
 		status = this->bridgeApi_->get_global(this->strategySourceField_, &value, buffer.data(), &bytes);
 	}
 	if (status == ESB_E_UNSET) return changed;
+	if (status == ESB_E_NO_PROVIDER || status == ESB_E_NO_FIELD)
+	{
+		// Source provider gone (unloaded or reloaded): drop the subscription and resolve again
+		this->bridgeApi_->unsubscribe(this->strategySourceSub_);
+		this->strategySourceSub_ = nullptr;
+		this->strategySourceField_ = ESB_FIELD_NONE;
+		this->strategySourceNextAttempt_ = 0;
+		this->strategySourceMissingLogged_ = true;
+		Logger::log(LogLevel::Info, "Strategy source " + this->strategySourceName_ + " lost (status " + std::to_string(status) +
+			"). Retrying every 30 s.");
+		return changed;
+	}
 	if (status != ESB_OK)
 	{
 		Logger::log(LogLevel::Debug, "Strategy source " + this->strategySourceName_ + " unreadable (status " + std::to_string(status) + ").", DebugLevel::Conf);
