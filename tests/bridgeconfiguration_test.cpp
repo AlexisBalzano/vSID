@@ -63,7 +63,7 @@ void testStrategySerialized()
 	lfpg["label"] = "Roulage mini \"quoted\"";
 	lfpg["assign"] = Ordered::object();
 	lfpg["source"] = "manual";
-	lfpg["effective"] = Ordered{{"DIKOL", "south"}, {"*", "nearest"}};
+	lfpg["effective"] = Ordered{{"DIKOL", "south"}, {"LANVI", "nearest"}};
 	snapshot.strategies["LFPG"] = lfpg;
 	const auto fields = serialize(snapshot);
 	const auto& text = fields.at("strategy");

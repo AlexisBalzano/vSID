@@ -206,8 +206,14 @@ void testToBridge()
 
 	check(book.setStrategy(cfg, "roulage-mini", error), "wildcard strategy");
 	const Json wild = book.toBridge(cfg);
-	check(wild["effective"].contains("*") && wild["effective"]["*"] == "nearest", "wildcard listed");
-	check(wild["effective"]["PO"] == "nearest", "every point nearest");
+	check(wild["effective"] == Json::parse(R"({"DIKOL":"nearest","OKASI":"nearest","LANVI":"nearest","PO":"nearest"})"),
+		"wildcard expanded per point, no '*' key");
+
+	check(book.assign(cfg, { "PO=default", "LANVI=south" }, error), "override under the wildcard");
+	const Json overridden = book.toBridge(cfg);
+	check(!overridden["effective"].contains("PO"), "point overridden to default is missing");
+	check(!overridden["effective"].contains("*"), "still no '*' key");
+	check(overridden["effective"]["LANVI"] == "south" && overridden["effective"]["DIKOL"] == "nearest", "other points resolved");
 }
 
 int main()

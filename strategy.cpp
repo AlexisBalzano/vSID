@@ -178,6 +178,7 @@ namespace vsid::v2
 		out["assign"] = assignJson;
 		out["source"] = m_source == StrategySource::External ? "external" : "manual";
 
+		// every waypoint whose resolved mode is not "default" ("*" expanded); missing means default
 		Json effective = Json::object();
 		for (const auto& entry : cfg.entries)
 		{
@@ -185,9 +186,6 @@ namespace vsid::v2
 			const std::string mode = modeFor(cfg, entry.waypoint);
 			if (mode != "default") effective[entry.waypoint] = mode;
 		}
-		if (strategy)
-			for (const auto& pair : strategy->assign)
-				if (pair.first == "*") effective["*"] = pair.second;
 		out["effective"] = effective;
 		return out;
 	}

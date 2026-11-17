@@ -275,8 +275,9 @@ rules and strategies. The plugin has no Paris-specific fields or commands.
 ```
 
 `strategy` is `nominal` (label `Nominal`) when no strategy is active, `source` is
-`manual` or `external`, and `effective` lists the points whose mode is not `default`
-(plus `*` when the strategy has one). The `areas` field of schema 1.1 is removed.
+`manual` or `external`, and `effective` lists every point of the airport whose resolved
+mode is not `default` (a `*` of the strategy is expanded per point); a point missing from
+`effective` is in mode `default`. The `areas` field of schema 1.1 is removed.
 
 Snapshots replace previous values, so inactive airports disappear and `{}` means
 no active airports. Oversized snapshots are skipped with a warning, retaining the
