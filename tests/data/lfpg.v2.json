@@ -1149,14 +1149,14 @@
 				}
 			},
 			"ranux-dikol-sud": {
-				"label": "RANUX DIKOL → Sud",
+				"label": "RANUX DIKOL -> Sud",
 				"assign": {
 					"RANUX": "south",
 					"DIKOL": "south"
 				}
 			},
 			"lanvi-bubli-baxir-nord": {
-				"label": "LANVI BUBLI BAXIR → Nord",
+				"label": "LANVI BUBLI BAXIR -> Nord",
 				"assign": {
 					"LANVI": "north",
 					"BUBLI": "north",

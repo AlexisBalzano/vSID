@@ -8,7 +8,7 @@ DEFAULT_STRATEGY = "roulage-mini"
 
 STRATEGIES = {
 	"roulage-mini": {"label": "Roulage mini", "assign": {"*": "nearest"}},
-	"ranux-dikol-sud": {"label": "RANUX DIKOL → Sud", "assign": {"RANUX": "south", "DIKOL": "south"}},
-	"lanvi-bubli-baxir-nord": {"label": "LANVI BUBLI BAXIR → Nord",
+	"ranux-dikol-sud": {"label": "RANUX DIKOL -> Sud", "assign": {"RANUX": "south", "DIKOL": "south"}},
+	"lanvi-bubli-baxir-nord": {"label": "LANVI BUBLI BAXIR -> Nord",
 		"assign": {"LANVI": "north", "BUBLI": "north", "BAXIR": "north"}},
 }
