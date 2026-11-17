@@ -22,10 +22,10 @@ void vsid::VSIDPlugin::publishBridgeConfiguration()
 	const auto values = bridgeconfig::serialize(snapshot);
 	const auto publish = [&](ESB_FieldId field, const std::string& name, std::size_t limit)
 	{
-		const auto result = bridgeconfig::publish(field, values.at(name), limit, this->bridgeConfigurationCache_,
+		const auto result = bridgeconfig::publish(values.at(name), limit,
 			[&](const std::string& value)
 			{
-				const auto data = ESB_Str(value.c_str());
+				const auto data = bridgeStr(value);
 				return this->bridgeApi_->set_global(this->bridgeProvider_, field, &data) == ESB_OK;
 			});
 		if (result == bridgeconfig::Publication::Overflow)

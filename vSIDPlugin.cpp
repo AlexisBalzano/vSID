@@ -1,5 +1,7 @@
 #include "pch.h"
 
+// The only .cpp that defines the bridge client shim (A2); others use bridgeStr/bridgeModule
+#define ESB_CLIENT_SHIM
 #include "vSIDPlugin.h"
 #include "flightplan.h"
 #include "timeHandler.h"
@@ -4464,9 +4466,11 @@ void vsid::VSIDPlugin::OnTimer(int Counter)
 	bridgeApi_ = ESB_Attach();
 	if (bridgeApi_ == nullptr)
 	{
-		// One message, once, using the shared wording so a user running several
-		// bridge-aware plugins is told the same thing once rather than three ways (A7).
-		if (++bridgeMissingTicks_ == BRIDGE_MISSING_TICKS_BEFORE_WARNING)
+		// vSID works without the bridge, so stay silent (A7) unless the user configured a
+		// strategySource, which cannot work without it. Then: one message, once, with the
+		// shared wording so a user running several bridge-aware plugins reads it only once.
+		if (!this->configParser.strategySource.empty() &&
+			++bridgeMissingTicks_ == BRIDGE_MISSING_TICKS_BEFORE_WARNING)
 			messageHandler->addGenError(ESB_MISSING_MESSAGE);
 	}
 	else if (bridgeProvider_ == nullptr && !bridgeProviderConflict_) RegisterBridgeProvider();
@@ -4781,17 +4785,22 @@ void vsid::VSIDPlugin::setClearanceFlag(EuroScopePlugIn::CFlightPlan& FlightPlan
 * END ES FUNCTIONS
 */
 
+void* vsid::VSIDPlugin::bridgeModule()
+{
+	return ESB_SelfModule();
+}
+
 bool vsid::VSIDPlugin::RegisterBridgeProvider()
 {
-	// The doc strings are what ".esb schema rampagent" prints, and in practice the only
+	// The doc strings are what ".esb schema vsid" prints, and in practice the only
 	// documentation a consumer will read (B1.3).
 	static const ESB_FieldDecl fields[] = {
 		{ BRIDGE_SID_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
-		  "SID assigned by the vSID service, empty when none is held" },
+		  "SID as shown in the vSID tag: SID name, or VFR/EQUIP/MANUAL/exit waypoint when none applies" },
 		{ BRIDGE_RWY_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
-		  "Runway assigned by the vSID service, empty when none is held" },
+		  "Departure runway as shown in the vSID tag, --- when none" },
 		{ BRIDGE_CFL_FIELD, ESB_T_STR, ESB_SCOPE_AIRCRAFT, 0, BRIDGE_FIELD_MAX_BYTES,
-		  "CFL assigned by the vSID service, empty when none is held" },
+		  "CFL as shown in the vSID tag: ES cleared level if set, else SID initial climb; A050 at or below TA, else FL as 080/120; --- when none" },
 		{ "automode", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 4096,
 		  "SID assignment Auto per active airport: ICAO=0; or ICAO=1;" },
 		{ "rules", ESB_T_STR, ESB_SCOPE_GLOBAL, 0, 65536,
@@ -4821,7 +4830,7 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		// retry around (B1.6), so say it once and stop attempting.
 		if (status == ESB_E_PROVIDER_TAKEN) {
 			bridgeProviderConflict_ = true;
-			messageHandler->addGenError("Another loaded plugin already owns the \"" + std::string(BRIDGE_PROVIDER_ID) + "\" bridge provider id. Stand data will not be published.");
+			messageHandler->addGenError("Another loaded plugin already owns the \"" + std::string(BRIDGE_PROVIDER_ID) + "\" bridge provider id. vSID bridge data will not be published.");
 		}
 		return false;
 	}
@@ -4846,7 +4855,6 @@ bool vsid::VSIDPlugin::RegisterBridgeProvider()
 		return false;
 	}
 
-	bridgeConfigurationCache_.clear();
 	bridgeConfigurationWarnings_.clear();
 	publishBridgeConfiguration();
 	return true;

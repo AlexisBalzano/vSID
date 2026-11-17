@@ -51,7 +51,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "logger.h"
 
 
-#define ESB_CLIENT_SHIM
+// ESB_CLIENT_SHIM (ESB_Attach, esb_api, ESB_SelfModule, ESB_Str) is defined in vSIDPlugin.cpp
+// only: the shim holds file-static attach state, so it must exist in exactly one .cpp (A2).
 #include "include/PluginBridge/esbridge.h"
 
 namespace vsid
@@ -70,6 +71,17 @@ namespace vsid
 	static constexpr const char* BRIDGE_CFL_FIELD = "cfl";
 	static constexpr uint32_t BRIDGE_FIELD_MAX_BYTES = 32;
 	static constexpr int BRIDGE_MISSING_TICKS_BEFORE_WARNING = 10;
+
+	// Shim-free ESB_Str for the .cpp files that do not own the client shim. Borrows the
+	// string's buffer, so the string must outlive the set_* call.
+	inline ESB_Value bridgeStr(const std::string& s)
+	{
+		ESB_Value v = {};
+		v.type = ESB_T_STR;
+		v.bytes = static_cast<uint32_t>(s.size());
+		v.v.ptr = s.data();
+		return v;
+	}
 	static constexpr int BRIDGE_SWEEP_MAX_NEW = 10; // cap the fplns newly processed per sweep
 
 	struct Command {
@@ -420,6 +432,10 @@ namespace vsid
 		// Description: Bridge change callback: only flags the change, consumed by OnTimer
 		//************************************
 		void markStrategySourceChanged() { this->strategySourcePending_ = true; }
+		//************************************
+		// Description: vSID's own HMODULE (ESB_SelfModule), usable outside the shim's .cpp
+		//************************************
+		static void* bridgeModule();
 
 		//************************************
 		// Description: Publish the SID, RWY and CFL vSID holds for a flight plan to the
@@ -587,7 +603,6 @@ namespace vsid
 		ESB_FieldId bridgeStrategyField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutoConfigField_ = ESB_FIELD_NONE;
 		ESB_FieldId bridgeAutomaticModeField_ = ESB_FIELD_NONE;
-		std::map<ESB_FieldId, std::string> bridgeConfigurationCache_;
 		std::set<ESB_FieldId> bridgeConfigurationWarnings_;
 		int bridgeMissingTicks_ = 0;
 		bool bridgeProviderConflict_ = false; // Another module owns "vsid"; stop retrying

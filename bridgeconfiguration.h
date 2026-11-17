@@ -45,19 +45,15 @@ namespace vsid::bridgeconfig
 		};
 	}
 
-	enum class Publication { Unchanged, Overflow, Published, Failed };
+	enum class Publication { Overflow, Published, Failed };
 
-	/** @brief Never replace a valid publication with an overflow placeholder. */
-	template<class Field, class Writer>
-	Publication publish(Field field, const std::string& value, std::size_t limit,
-		std::map<Field, std::string>& cache, Writer write)
+	/** @brief Never replace a valid publication with an overflow placeholder. No dirty tracking:
+	 *  the bridge compares first and ignores a write identical to the stored value (B1.9). */
+	template<class Writer>
+	Publication publish(const std::string& value, std::size_t limit, Writer write)
 	{
 		if (value.size() > limit) return Publication::Overflow;
-		const auto previous = cache.find(field);
-		if (previous != cache.end() && previous->second == value) return Publication::Unchanged;
-		if (!write(value)) return Publication::Failed;
-		cache[field] = value;
-		return Publication::Published;
+		return write(value) ? Publication::Published : Publication::Failed;
 	}
 
 	/** @brief Validate a complete explicit rule assignment before changing any rule. */

@@ -111,15 +111,15 @@ int main()
 	lowercaseAirport.states["EGKK"] = controller.stateFor("egkk");
 	const auto state = Json::parse(serialize(lowercaseAirport).at("autoconfig")).at("EGKK");
 	check(state.at("status") == "MATCHED" && state.at("profile") == "East", "lowercase sector airport publishes matched status instead of NOT_LOADED");
-	std::map<int, std::string> cache;
 	int writes = 0;
-	auto writer = [&](const std::string&) { ++writes; return true; };
-	check(publish(1, "EGKK=1;", 4096, cache, writer) == Publication::Published, "initial publication");
-	check(publish(1, std::string(4097,'X'), 4096, cache, writer) == Publication::Overflow && writes == 1 && cache.at(1) == "EGKK=1;",
+	std::string stored;
+	auto writer = [&](const std::string& value) { ++writes; stored = value; return true; };
+	check(publish("EGKK=1;", 4096, writer) == Publication::Published && stored == "EGKK=1;", "initial publication");
+	check(publish(std::string(4097,'X'), 4096, writer) == Publication::Overflow && writes == 1 && stored == "EGKK=1;",
 		"overflow retains previous bridge value without publishing empty");
-	check(publish(1, "EGKK=1;", 4096, cache, writer) == Publication::Unchanged && writes == 1, "cache suppresses duplicate");
-	check(publish(1, "", 4096, cache, writer) == Publication::Published && writes == 2, "real empty snapshot still clears");
-	check(publish(1, "retry", 4096, cache, [](const auto&) {return false;}) == Publication::Failed && cache.at(1).empty(), "failed write retried");
+	check(publish(std::string(4096,'X'), 4096, writer) == Publication::Published && writes == 2, "value at the limit published");
+	check(publish("", 4096, writer) == Publication::Published && writes == 3 && stored.empty(), "real empty snapshot still clears");
+	check(publish("retry", 4096, [](const auto&) {return false;}) == Publication::Failed, "failed write reported");
 	std::map<std::string,bool> rules{{"ONE",false},{"TWO",true}};
 	std::vector<std::string> selected;
 	check(!assign(rules, std::vector<std::string>{"ONE=on","MISSING=off"}, selected) && !rules.at("ONE") && selected.empty(), "unknown assignment atomic");

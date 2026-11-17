@@ -115,7 +115,7 @@ void vsid::VSIDPlugin::connectStrategySource(int counter)
 	ESB_FieldId field = ESB_FIELD_NONE;
 	ESB_Status status = this->bridgeApi_->resolve(this->strategySourceName_.c_str(), ESB_T_STR, &field);
 	ESB_Sub* subscription = nullptr;
-	if (status == ESB_OK) status = this->bridgeApi_->subscribe(field, &strategySourceChanged, this, ESB_SelfModule(), &subscription);
+	if (status == ESB_OK) status = this->bridgeApi_->subscribe(field, &strategySourceChanged, this, bridgeModule(), &subscription);
 	if (status != ESB_OK)
 	{
 		if (!this->strategySourceMissingLogged_)
